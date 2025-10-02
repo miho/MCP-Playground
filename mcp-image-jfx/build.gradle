@@ -1,0 +1,151 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.gradleup.shadow' version '8.3.0'
+}
+
+group = 'com.imageprocessing'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+}
+
+// all java files are utf8
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // MCP SDK
+    implementation platform('io.modelcontextprotocol.sdk:mcp-bom:0.13.1')
+    implementation 'io.modelcontextprotocol.sdk:mcp:0.13.1'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-simple:2.0.9'
+
+    // Embedded Jetty server for HTTP transport
+    implementation 'org.eclipse.jetty:jetty-server:11.0.20'
+    implementation 'org.eclipse.jetty:jetty-servlet:11.0.20'
+    implementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+
+    // OpenCV for Java
+    implementation 'org.openpnp:opencv:4.9.0-0'
+
+    // JavaFX dependencies
+    implementation 'org.openjfx:javafx-controls:21.0.1'
+    implementation 'org.openjfx:javafx-fxml:21.0.1'
+    implementation 'org.openjfx:javafx-graphics:21.0.1'
+    implementation 'org.openjfx:javafx-swing:21.0.1'
+
+    // Jackson for JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+
+    // CLI argument parsing
+    implementation 'info.picocli:picocli:4.7.5'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+javafx {
+    version = "21.0.1"
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics', 'javafx.swing']
+}
+
+// Generate build timestamp
+def buildTimestamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone("UTC"))
+
+// Create a task to generate a properties file with build info
+tasks.register('generateBuildInfo') {
+    def outputDir = file("$buildDir/generated/resources")
+    outputs.dir outputDir
+    doLast {
+        outputDir.mkdirs()
+        def propsFile = file("$outputDir/build-info.properties")
+        propsFile.text = "build.timestamp=$buildTimestamp\nversion=$version\n"
+    }
+}
+
+// Make sure the generated resources are included in the JAR
+sourceSets.main.output.dir("$buildDir/generated/resources", builtBy: 'generateBuildInfo')
+
+// Default application main class (JavaFX UI)
+application {
+    mainClass = 'com.imageprocessing.ui.ImageProcessingApp'
+}
+
+// MCP Server fat JAR (exclude JavaFX and UI classes)
+tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    archiveBaseName.set('image-processing-mcp-server')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+
+    // Exclude JavaFX dependencies (server doesn't need UI)
+    dependencies {
+        exclude(dependency('org.openjfx:.*'))
+    }
+
+    // Exclude UI classes from the server JAR
+    exclude 'com/imageprocessing/ui/**'
+
+    mergeServiceFiles()
+
+    // Fix manifest after JAR is created
+    doLast {
+        ant.jar(update: true, destfile: archiveFile.get().asFile) {
+            delegate.manifest {
+                attribute(name: 'Main-Class', value: 'com.imageprocessing.server.ImageProcessingMcpServer')
+            }
+        }
+    }
+}
+
+// Task to run MCP Server (standalone)
+tasks.register('runServer', JavaExec) {
+    group = 'application'
+    description = 'Run the MCP Server'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.imageprocessing.server.ImageProcessingMcpServer'
+}
+
+// Alias for standard run task (now runs UI by default)
+tasks.register('runUI') {
+    group = 'application'
+    description = 'Run the JavaFX UI application'
+    dependsOn 'run'
+}
+
+// Custom task to build JavaFX UI fat JAR
+tasks.register('uiJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    group = 'build'
+    description = 'Build a fat JAR for the JavaFX UI application'
+    archiveBaseName.set('image-processing-ui')
+    archiveClassifier.set('')
+    archiveVersion.set('')
+    from(sourceSets.main.output)
+    configurations = [project.configurations.runtimeClasspath]
+    manifest {
+        attributes 'Main-Class': 'com.imageprocessing.ui.ImageProcessingApp'
+    }
+    mergeServiceFiles()
+}
+
+// Enable JUnit Platform (Jupiter)
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Usage:
+// - gradle run        -> Run JavaFX UI application
+// - gradle runUI      -> Run JavaFX UI application (alias for 'run')
+// - gradle runServer  -> Run MCP server standalone
+// - gradle shadowJar  -> Build MCP server fat JAR
+// - gradle uiJar      -> Build JavaFX UI fat JAR

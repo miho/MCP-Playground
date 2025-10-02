@@ -1,0 +1,150 @@
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  IMAGE PROCESSING PIPELINE BUILDER                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  CONTROL BAR                                                                               │ │
+│  │  ┌────┐ ┌────┐ │ ● Connected  [Launch MCP Server] │ [Save Workflow] [Load Workflow]     │ │
+│  │  │Play│ │Stop│ │                                                                          │ │
+│  │  └────┘ └────┘                                                                             │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────────────────────┐│
+│  │                                                                                             ││
+│  │  ┌─────────────┬──────────────────────────────────────┬────────────────────────────────┐  ││
+│  │  │             │                                       │                                 │  ││
+│  │  │ TOOL        │  EXECUTION PIPELINE                  │  PARAMETER EDITOR              │  ││
+│  │  │ COLLECTION  │                                       │                                 │  ││
+│  │  │             │                                       │                                 │  ││
+│  │  │ [Search...] │  ┌───────────────────────────────┐  │  [Tool Description]            │  ││
+│  │  │             │  │ ● load_image                  │  │                                 │  ││
+│  │  │ ▼ Load      │  │   image_path=/path/to/img.png │  │  image_path *                  │  ││
+│  │  │   load_image│  └───────────────────────────────┘  │  [/path/to/img.png] [Browse]   │  ││
+│  │  │             │                                       │                                 │  ││
+│  │  │ ▼ Transform │  ┌───────────────────────────────┐  │  result_key                    │  ││
+│  │  │   resize_   │  │ ● resize_image                │  │  ┌──────────────────────────┐  │  ││
+│  │  │   image     │  │   width=800, height=600...    │  │  │ original                 ▼│  │  ││
+│  │  │   color_to_ │  └───────────────────────────────┘  │  └──────────────────────────┘  │  ││
+│  │  │   grayscale │                                       │                                 │  ││
+│  │  │             │  ┌───────────────────────────────┐  │  width *                       │  ││
+│  │  │ ▼ Filter    │  │ ● blur_image                  │  │  [800    ]                     │  ││
+│  │  │   filter_   │  │   blur_type=GAUSSIAN, kern... │  │                                 │  ││
+│  │  │   image     │  └───────────────────────────────┘  │  height *                      │  ││
+│  │  │   denoise_  │                                       │  [600    ]                     │  ││
+│  │  │   image     │  [Clear All]                         │                                 │  ││
+│  │  │   blur_image│                                       │  interpolation                 │  ││
+│  │  │             │                                       │  ┌──────────────────────────┐  │  ││
+│  │  │ ▼ Analysis  │                                       │  │ LINEAR                   ▼│  │  ││
+│  │  │   segment_  │                                       │  └──────────────────────────┘  │  ││
+│  │  │   image     │                                       │                                 │  ││
+│  │  │   detect_   │                                       │  output_path                   │  ││
+│  │  │   contours  │                                       │  [./resized.png] [Save As...]  │  ││
+│  │  │             │                                       │                                 │  ││
+│  │  │ ▼ Output    │                                       │  output_key                    │  ││
+│  │  │   output_   │                                       │  [resized           ]          │  ││
+│  │  │   segmented │                                       │                                 │  ││
+│  │  │   display_  │                                       │  [Apply]  [Reset]              │  ││
+│  │  │   image     │                                       │                                 │  ││
+│  │  │             │                                       │                                 │  ││
+│  │  └─────────────┴──────────────────────────────────────┴────────────────────────────────┘  ││
+│  │                                                                                             ││
+│  └────────────────────────────────────────────────────────────────────────────────────────────┘│
+│                                                                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  STATUS BAR                                                                                │ │
+│  │  Ready                                    [██████████░░░░░░░░░]  3 tools | 2 completed    │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+LEGEND:
+────────
+● Blue Circle    = Pending
+● Orange Circle  = Running
+● Green Circle   = Completed
+● Red Circle     = Error
+
+[Button]         = Clickable button
+[Text Field]     = Editable text input
+[Dropdown ▼]     = ComboBox/DropDown
+▼ Category       = Expandable/Collapsible section
+* Required       = Required parameter
+
+
+INTERACTION FLOWS:
+──────────────────
+
+1. BUILDING A PIPELINE:
+   a. Search for tool in left panel
+   b. Drag tool from collection
+   c. Drop in center pipeline area
+   d. Select tool in pipeline
+   e. Edit parameters in right panel
+   f. Repeat for each tool
+
+2. EXECUTING A PIPELINE:
+   a. Click [Launch MCP Server] if not connected
+   b. Wait for green status indicator
+   c. Click [Play] button
+   d. Watch status indicators change color
+   e. Monitor progress bar in status bar
+   f. Check final status message
+
+3. PARAMETER CHAINING:
+   a. Set output_key on first tool (e.g., "original")
+   b. Use result_key on next tool to reference "original"
+   c. Continue chaining through pipeline
+   d. Final tool can save with output_path
+
+4. WORKFLOW PERSISTENCE:
+   a. Build desired pipeline
+   b. Click [Save Workflow]
+   c. Choose location and filename
+   d. Later: Click [Load Workflow]
+   e. Select saved file
+   f. Pipeline restored with all parameters
+
+
+TYPICAL WORKFLOW EXAMPLE:
+─────────────────────────
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 1. load_image                                                    │
+│    - image_path: /home/user/photo.jpg                           │
+│    - result_key: original                                        │
+│    Status: ● Completed                                           │
+└──────────────────────────────────────────────────────────────────┘
+           ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 2. color_to_grayscale                                            │
+│    - result_key: original                                        │
+│    - output_key: gray                                            │
+│    Status: ● Completed                                           │
+└──────────────────────────────────────────────────────────────────┘
+           ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 3. segment_image                                                 │
+│    - result_key: gray                                            │
+│    - threshold: 127                                              │
+│    - threshold_type: BINARY                                      │
+│    - output_key: segmented                                       │
+│    Status: ● Running                                             │
+└──────────────────────────────────────────────────────────────────┘
+           ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 4. detect_contours                                               │
+│    - result_key: segmented                                       │
+│    - min_area: 100                                               │
+│    - output_path: /home/user/contours.png                       │
+│    Status: ● Pending                                             │
+└──────────────────────────────────────────────────────────────────┘
+
+
+KEYBOARD SHORTCUTS (Future):
+────────────────────────────
+Ctrl+S      - Save Workflow
+Ctrl+O      - Load Workflow
+Ctrl+N      - Clear Pipeline
+Delete      - Remove selected tool
+Space       - Play/Stop execution
+F5          - Refresh tool collection
+Ctrl+Z      - Undo
+Ctrl+Y      - Redo

@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "tools": [
+    {
+      "name": "load_image",
+      "parameters": {
+        "image_path": "/path/to/input.jpg",
+        "result_key": "img1"
+      }
+    },
+    {
+      "name": "color_to_grayscale",
+      "parameters": {
+        "result_key": "img1",
+        "output_key": "gray1"
+      }
+    },
+    {
+      "name": "segment_image",
+      "parameters": {
+        "result_key": "gray1",
+        "threshold": 127.0,
+        "threshold_type": "BINARY",
+        "invert": false,
+        "output_key": "segmented1"
+      }
+    },
+    {
+      "name": "display_image",
+      "parameters": {
+        "result_key": "segmented1"
+      }
+    }
+  ]
+}

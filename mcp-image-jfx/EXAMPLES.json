@@ -1,0 +1,257 @@
+{
+  "tool_examples": {
+    "load_image": {
+      "description": "Load an image from a file path and store in cache",
+      "request": {
+        "image_path": "/path/to/image.jpg",
+        "result_key": "original_image"
+      }
+    },
+    "load_image_from_url": {
+      "description": "Load an image from a URL",
+      "request": {
+        "image_url": "https://example.com/image.png",
+        "result_key": "web_image"
+      }
+    },
+    "resize_image": {
+      "description": "Resize an image to 800x600 using cubic interpolation",
+      "request": {
+        "result_key": "original_image",
+        "width": 800,
+        "height": 600,
+        "interpolation": "CUBIC",
+        "output_path": "/tmp/resized.jpg",
+        "output_key": "resized_image"
+      }
+    },
+    "segment_image": {
+      "description": "Segment an image using Otsu's automatic thresholding",
+      "request": {
+        "result_key": "original_image",
+        "threshold": 0,
+        "threshold_type": "OTSU",
+        "output_key": "segmented_image"
+      }
+    },
+    "segment_binary": {
+      "description": "Segment with manual threshold",
+      "request": {
+        "image_path": "/path/to/image.jpg",
+        "threshold": 127,
+        "threshold_type": "BINARY",
+        "output_path": "/tmp/segmented.jpg"
+      }
+    },
+    "color_to_grayscale": {
+      "description": "Convert a color image to grayscale",
+      "request": {
+        "result_key": "original_image",
+        "output_key": "gray_image"
+      }
+    },
+    "filter_gaussian": {
+      "description": "Apply Gaussian filter for smoothing",
+      "request": {
+        "result_key": "original_image",
+        "filter_type": "GAUSSIAN",
+        "kernel_size": 5,
+        "sigma_x": 1.5,
+        "output_key": "filtered_image"
+      }
+    },
+    "filter_bilateral": {
+      "description": "Apply bilateral filter for edge-preserving smoothing",
+      "request": {
+        "result_key": "original_image",
+        "filter_type": "BILATERAL",
+        "kernel_size": 9,
+        "sigma_color": 75.0,
+        "sigma_space": 75.0,
+        "output_path": "/tmp/bilateral.jpg"
+      }
+    },
+    "filter_median": {
+      "description": "Apply median filter for noise reduction",
+      "request": {
+        "image_path": "/path/to/noisy.jpg",
+        "filter_type": "MEDIAN",
+        "kernel_size": 5,
+        "output_path": "/tmp/denoised_median.jpg"
+      }
+    },
+    "denoise_image": {
+      "description": "Denoise an image using Non-Local Means",
+      "request": {
+        "result_key": "original_image",
+        "h": 10.0,
+        "template_window_size": 7,
+        "search_window_size": 21,
+        "output_key": "denoised_image"
+      }
+    },
+    "blur_gaussian": {
+      "description": "Apply Gaussian blur",
+      "request": {
+        "result_key": "original_image",
+        "blur_type": "GAUSSIAN",
+        "kernel_size": 15,
+        "output_path": "/tmp/blurred.jpg"
+      }
+    },
+    "blur_motion": {
+      "description": "Apply motion blur at 45 degrees",
+      "request": {
+        "image_path": "/path/to/image.jpg",
+        "blur_type": "MOTION",
+        "kernel_size": 21,
+        "angle": 45.0,
+        "output_path": "/tmp/motion_blur.jpg"
+      }
+    },
+    "detect_contours": {
+      "description": "Detect contours with size and circularity filters",
+      "request": {
+        "result_key": "segmented_image",
+        "min_area": 100.0,
+        "max_area": 10000.0,
+        "min_circularity": 0.7,
+        "output_path": "/tmp/contours.jpg",
+        "output_key": "contours_visualization"
+      }
+    },
+    "detect_all_contours": {
+      "description": "Detect all contours above minimum area",
+      "request": {
+        "image_path": "/path/to/binary_image.jpg",
+        "min_area": 50.0,
+        "max_area": -1.0,
+        "min_circularity": -1.0,
+        "output_path": "/tmp/all_contours.jpg"
+      }
+    },
+    "output_segmented": {
+      "description": "Extract segmented regions from an image using a mask",
+      "request": {
+        "source_key": "original_image",
+        "mask_key": "segmented_image",
+        "output_path": "/tmp/region.png"
+      }
+    },
+    "output_segmented_from_files": {
+      "description": "Extract regions from files",
+      "request": {
+        "image_path": "/path/to/source.jpg",
+        "mask_path": "/path/to/mask.jpg",
+        "output_path": "/tmp/regions/output.png"
+      }
+    },
+    "display_image": {
+      "description": "Display an image in MCP client",
+      "request": {
+        "result_key": "filtered_image"
+      }
+    },
+    "display_from_path": {
+      "description": "Display an image from file path",
+      "request": {
+        "image_path": "/path/to/image.jpg"
+      }
+    }
+  },
+  "workflow_examples": {
+    "complete_pipeline": {
+      "description": "Complete image processing pipeline",
+      "steps": [
+        {
+          "tool": "load_image",
+          "args": {
+            "image_path": "/path/to/original.jpg",
+            "result_key": "original"
+          }
+        },
+        {
+          "tool": "denoise_image",
+          "args": {
+            "result_key": "original",
+            "h": 10.0,
+            "output_key": "denoised"
+          }
+        },
+        {
+          "tool": "color_to_grayscale",
+          "args": {
+            "result_key": "denoised",
+            "output_key": "gray"
+          }
+        },
+        {
+          "tool": "segment_image",
+          "args": {
+            "result_key": "gray",
+            "threshold_type": "OTSU",
+            "output_key": "segmented"
+          }
+        },
+        {
+          "tool": "detect_contours",
+          "args": {
+            "result_key": "segmented",
+            "min_area": 100.0,
+            "output_path": "/tmp/final_contours.jpg"
+          }
+        },
+        {
+          "tool": "display_image",
+          "args": {
+            "image_path": "/tmp/final_contours.jpg"
+          }
+        }
+      ]
+    },
+    "segmentation_and_extraction": {
+      "description": "Segment and extract regions",
+      "steps": [
+        {
+          "tool": "load_image",
+          "args": {
+            "image_path": "/path/to/source.jpg",
+            "result_key": "source"
+          }
+        },
+        {
+          "tool": "color_to_grayscale",
+          "args": {
+            "result_key": "source",
+            "output_key": "gray"
+          }
+        },
+        {
+          "tool": "segment_image",
+          "args": {
+            "result_key": "gray",
+            "threshold": 127,
+            "threshold_type": "BINARY",
+            "output_key": "mask"
+          }
+        },
+        {
+          "tool": "output_segmented",
+          "args": {
+            "source_key": "source",
+            "mask_key": "mask",
+            "output_path": "/tmp/extracted_regions/region.png"
+          }
+        }
+      ]
+    }
+  },
+  "notes": {
+    "cache_usage": "Use result_key to retrieve cached images, output_key to store results. This avoids repeated file I/O.",
+    "image_sources": "Tools accept image_path, image_url, image_data (base64), OR result_key (from cache).",
+    "interpolation_methods": "NEAREST, LINEAR, CUBIC, AREA, LANCZOS4",
+    "threshold_types": "BINARY, BINARY_INV, TRUNC, TOZERO, TOZERO_INV, OTSU",
+    "filter_types": "GAUSSIAN, MEDIAN, BILATERAL",
+    "blur_types": "GAUSSIAN, MOTION, BOX, AVERAGE"
+  }
+}

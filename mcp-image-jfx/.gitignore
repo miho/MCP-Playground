@@ -1,0 +1,7 @@
+build
+bin
+out
+logs
+.gradle
+.idea
+.claude
