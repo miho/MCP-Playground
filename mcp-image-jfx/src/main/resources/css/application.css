@@ -193,6 +193,23 @@
     -fx-padding: 4 0 0 18;
 }
 
+.tool-card .param-container {
+    -fx-padding: 4 0 0 18;
+    -fx-spacing: 2;
+}
+
+.tool-card .param-text {
+    -fx-font-size: 11px;
+    -fx-text-fill: #9ca3af;
+    -fx-font-family: "Consolas", "Monaco", "Courier New", monospace;
+}
+
+.tool-card .param-text-muted {
+    -fx-font-size: 11px;
+    -fx-text-fill: #6b7280;
+    -fx-font-style: italic;
+}
+
 .tool-card .error-message {
     -fx-font-size: 11px;
     -fx-text-fill: #ef4444;
@@ -584,6 +601,14 @@
     -fx-text-fill: #6b7280;
 }
 
+.light-theme .tool-card .param-text {
+    -fx-text-fill: #6b7280;
+}
+
+.light-theme .tool-card .param-text-muted {
+    -fx-text-fill: #9ca3af;
+}
+
 .light-theme .tool-card .error-message {
     -fx-text-fill: #ef4444;
 }
@@ -763,4 +788,72 @@
 
 .light-theme .thumbnail-info {
     -fx-text-fill: #6b7280;
+}
+
+/* Workflow Graph View - Dark */
+.workflow-graph-view {
+    -fx-background-color: #1e1e1e;
+}
+
+.graph-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f3f4f6;
+    -fx-padding: 10 10 10 10;
+}
+
+.graph-scroll {
+    -fx-background-color: #1e1e1e;
+}
+
+.graph-scroll .viewport {
+    -fx-background-color: #1e1e1e;
+}
+
+.graph-placeholder {
+    -fx-font-size: 14px;
+    -fx-text-fill: #6b7280;
+    -fx-padding: 40;
+}
+
+.graph-toggle-button {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+    -fx-font-size: 12px;
+    -fx-padding: 6 12 6 12;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+}
+
+.graph-toggle-button:hover {
+    -fx-background-color: #2563eb;
+}
+
+/* Workflow Graph View - Light */
+.light-theme .workflow-graph-view {
+    -fx-background-color: white;
+}
+
+.light-theme .graph-title {
+    -fx-text-fill: #111827;
+}
+
+.light-theme .graph-scroll {
+    -fx-background-color: white;
+}
+
+.light-theme .graph-scroll .viewport {
+    -fx-background-color: white;
+}
+
+.light-theme .graph-placeholder {
+    -fx-text-fill: #9ca3af;
+}
+
+.light-theme .graph-toggle-button {
+    -fx-background-color: #3b82f6;
+}
+
+.light-theme .graph-toggle-button:hover {
+    -fx-background-color: #2563eb;
 }

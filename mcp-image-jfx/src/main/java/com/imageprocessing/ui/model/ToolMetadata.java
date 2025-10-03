@@ -62,9 +62,9 @@ public class ToolMetadata {
             FLOAT,
             BOOLEAN,
             IMAGE_PATH,      // File path with browse button
-            RESULT_KEY,      // ComboBox of cached results
+            INPUT_KEY,       // ComboBox of cached results (input from cache)
             OUTPUT_PATH,     // File path with save dialog
-            OUTPUT_KEY,      // TextField for cache storage
+            OUTPUT_KEY,      // TextField for cache storage (output to cache)
             ENUM             // ComboBox with predefined values
         }
 

@@ -263,7 +263,7 @@ public class ImageProcessingMcpServer {
                       "type": "string",
                       "description": "Base64 encoded image data"
                     },
-                    "result_key": {
+                    "output_key": {
                       "type": "string",
                       "description": "Key to store the loaded image in cache for later use"
                     }
@@ -284,26 +284,26 @@ public class ImageProcessingMcpServer {
                             String imagePath = getStringArg(args, "image_path");
                             String imageUrl = getStringArg(args, "image_url");
                             String imageData = getStringArg(args, "image_data");
-                            String resultKey = getStringArg(args, "result_key");
+                            String outputKey = getStringArg(args, "output_key");
 
                             Mat mat = OpenCVImageProcessor.loadImage(imagePath, imageUrl, imageData);
 
-                            if (resultKey != null && !resultKey.isBlank()) {
-                                cache.put(resultKey, mat);
+                            if (outputKey != null && !outputKey.isBlank()) {
+                                cache.put(outputKey, mat);
                             }
 
                             String info = OpenCVImageProcessor.getImageInfo(mat);
                             String message = String.format("Image loaded successfully!\n%s", info);
 
-                            if (resultKey != null && !resultKey.isBlank()) {
-                                message += "\n- Cached with key: " + resultKey;
+                            if (outputKey != null && !outputKey.isBlank()) {
+                                message += "\n- Cached with key: " + outputKey;
                             }
 
                             // Convert image to base64 for client
                             String base64Image = OpenCVImageProcessor.matToBase64Png(mat);
                             String imageDataUri = "data:image/png;base64," + base64Image;
 
-                            if (resultKey == null || resultKey.isBlank()) {
+                            if (outputKey == null || outputKey.isBlank()) {
                                 mat.release();
                             }
 
@@ -334,7 +334,7 @@ public class ImageProcessingMcpServer {
                     "image_path": {"type": "string", "description": "Path to the image file"},
                     "image_url": {"type": "string", "description": "URL to the image"},
                     "image_data": {"type": "string", "description": "Base64 encoded image data"},
-                    "result_key": {"type": "string", "description": "Key to retrieve cached image"},
+                    "input_key": {"type": "string", "description": "Key to retrieve cached image"},
                     "width": {"type": "integer", "description": "Target width in pixels"},
                     "height": {"type": "integer", "description": "Target height in pixels"},
                     "interpolation": {
@@ -374,7 +374,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(resized);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -452,7 +452,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(segmented);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -510,7 +510,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(gray);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -584,7 +584,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(filtered);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -661,7 +661,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(denoised);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -734,7 +734,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(blurred);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -847,7 +847,7 @@ public class ImageProcessingMcpServer {
                             String base64Image = OpenCVImageProcessor.matToBase64Png(visualization);
                             String imageData = "data:image/png;base64," + base64Image;
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 src.release();
                             }
 
@@ -957,7 +957,7 @@ public class ImageProcessingMcpServer {
                     "image_path": {"type": "string"},
                     "image_url": {"type": "string"},
                     "image_data": {"type": "string"},
-                    "result_key": {"type": "string"}
+                    "input_key": {"type": "string"}
                   }
                 }
                 """;
@@ -975,7 +975,7 @@ public class ImageProcessingMcpServer {
 
                             String base64Image = OpenCVImageProcessor.matToBase64Png(mat);
 
-                            if (!cache.containsKey(getStringArg(args, "result_key"))) {
+                            if (!cache.containsKey(getStringArg(args, "input_key"))) {
                                 mat.release();
                             }
 
@@ -1061,14 +1061,14 @@ public class ImageProcessingMcpServer {
         // ==================== HELPER METHODS ====================
 
         private static Mat loadImageFromArgs(Map<String, Object> args) throws Exception {
-            return loadImageFromArgs(args, "image_path", "image_url", "image_data", "result_key");
+            return loadImageFromArgs(args, "image_path", "image_url", "image_data", "input_key");
         }
 
         private static Mat loadImageFromArgs(Map<String, Object> args, String pathKey,
                                             String urlKey, String dataKey, String cacheKey) throws Exception {
-            String resultKey = getStringArg(args, cacheKey);
-            if (resultKey != null && !resultKey.isBlank() && cache.containsKey(resultKey)) {
-                return cache.get(resultKey);
+            String inputKey = getStringArg(args, cacheKey);
+            if (inputKey != null && !inputKey.isBlank() && cache.containsKey(inputKey)) {
+                return cache.get(inputKey);
             }
 
             String imagePath = getStringArg(args, pathKey);

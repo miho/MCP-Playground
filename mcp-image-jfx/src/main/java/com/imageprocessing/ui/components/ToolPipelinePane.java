@@ -10,6 +10,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
@@ -20,6 +21,10 @@ public class ToolPipelinePane extends VBox {
 
     private final WorkflowModel workflowModel;
     private final ListView<ToolInstance> pipelineList;
+    private final WorkflowGraphView graphView;
+    private final StackPane contentPane;
+    private Button viewToggleButton;
+    private boolean showingGraphView = false;
     private Consumer<ToolInstance> onToolSelected;
     private Runnable onPipelineChanged;
 
@@ -50,16 +55,38 @@ public class ToolPipelinePane extends VBox {
         placeholder.getStyleClass().add("pipeline-placeholder");
         pipelineList.setPlaceholder(placeholder);
 
+        // Graph view
+        graphView = new WorkflowGraphView();
+        graphView.setWorkflowModel(workflowModel);
+        VBox.setVgrow(graphView, Priority.ALWAYS);
+
+        // Wire up graph view selection to parameter editor
+        graphView.setOnToolSelected(tool -> {
+            if (onToolSelected != null) {
+                onToolSelected.accept(tool);
+            }
+        });
+
+        // Content pane (switches between list and graph)
+        contentPane = new StackPane();
+        contentPane.getChildren().add(pipelineList);
+        VBox.setVgrow(contentPane, Priority.ALWAYS);
+
         // Layout
         this.setPadding(new Insets(10));
         this.setSpacing(10);
-        this.getChildren().addAll(header, pipelineList);
+        this.getChildren().addAll(header, contentPane);
         this.getStyleClass().add("tool-pipeline-pane");
     }
 
     private HBox createHeader() {
         Label title = new Label("Execution Pipeline");
         title.getStyleClass().add("pipeline-title");
+
+        // View toggle button
+        viewToggleButton = new Button("Graph View");
+        viewToggleButton.setOnAction(e -> toggleView());
+        viewToggleButton.getStyleClass().add("graph-toggle-button");
 
         Button clearButton = new Button("Clear All");
         clearButton.setOnAction(e -> clearPipeline());
@@ -68,9 +95,39 @@ public class ToolPipelinePane extends VBox {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox header = new HBox(10, title, spacer, clearButton);
+        HBox header = new HBox(10, title, spacer, viewToggleButton, clearButton);
         header.setAlignment(Pos.CENTER_LEFT);
         return header;
+    }
+
+    /**
+     * Toggle between list and graph view.
+     */
+    private void toggleView() {
+        if (showingGraphView) {
+            // Switch to list view
+            contentPane.getChildren().clear();
+            contentPane.getChildren().add(pipelineList);
+            viewToggleButton.setText("Graph View");
+            showingGraphView = false;
+        } else {
+            // Switch to graph view
+            contentPane.getChildren().clear();
+            contentPane.getChildren().add(graphView);
+            viewToggleButton.setText("List View");
+            showingGraphView = true;
+
+            // Update selected tool in graph
+            ToolInstance selected = pipelineList.getSelectionModel().getSelectedItem();
+            graphView.setSelectedTool(selected);
+        }
+    }
+
+    /**
+     * Update theme for graph view.
+     */
+    public void setDarkTheme(boolean dark) {
+        graphView.setDarkTheme(dark);
     }
 
     private void setupDragAndDrop() {
@@ -150,7 +207,7 @@ public class ToolPipelinePane extends VBox {
         private final Label nameLabel;
         private final Circle statusIndicator;
         private final Button removeButton;
-        private final Label paramSummary;
+        private final VBox paramContainer;
         private final Label errorLabel;
 
         public ToolCard() {
@@ -183,10 +240,9 @@ public class ToolPipelinePane extends VBox {
             headerBox = new HBox(8, statusIndicator, nameLabel, spacer, removeButton);
             headerBox.setAlignment(Pos.CENTER_LEFT);
 
-            // Parameter summary
-            paramSummary = new Label();
-            paramSummary.getStyleClass().add("param-summary");
-            paramSummary.setWrapText(true);
+            // Parameter container (will hold individual parameter labels)
+            paramContainer = new VBox(2);
+            paramContainer.getStyleClass().add("param-container");
 
             // Error message label
             errorLabel = new Label();
@@ -196,7 +252,7 @@ public class ToolPipelinePane extends VBox {
             errorLabel.setVisible(false);
 
             // Container
-            container = new VBox(5, headerBox, paramSummary, errorLabel);
+            container = new VBox(5, headerBox, paramContainer, errorLabel);
             container.setPadding(new Insets(8));
             container.getStyleClass().add("tool-card");
 
@@ -256,7 +312,9 @@ public class ToolPipelinePane extends VBox {
                 setGraphic(null);
             } else {
                 nameLabel.setText(tool.getName());
-                paramSummary.setText(tool.getParameterSummary());
+
+                // Build readable parameter display
+                buildParameterDisplay(tool);
 
                 // Update status indicator and error message
                 updateStatusIndicator(tool.getStatus());
@@ -274,6 +332,109 @@ public class ToolPipelinePane extends VBox {
 
                 setGraphic(container);
             }
+        }
+
+        /**
+         * Build a clean, readable display of tool parameters.
+         */
+        private void buildParameterDisplay(ToolInstance tool) {
+            paramContainer.getChildren().clear();
+
+            Map<String, Object> params = tool.getParameterValues();
+            if (params.isEmpty()) {
+                Label noParams = new Label("No parameters set");
+                noParams.getStyleClass().add("param-text-muted");
+                paramContainer.getChildren().add(noParams);
+                return;
+            }
+
+            // Group related parameters for better display
+            List<String> displayLines = new ArrayList<>();
+
+            // Show input/output keys first (most important)
+            String inputKey = getParamString(params, "input_key");
+            String outputKey = getParamString(params, "output_key");
+
+            if (inputKey != null) {
+                displayLines.add("input_key: " + inputKey);
+            }
+            if (outputKey != null) {
+                displayLines.add("output_key: " + outputKey);
+            }
+
+            // Show other parameters (excluding input_key and output_key)
+            List<String> otherParams = new ArrayList<>();
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+
+                // Skip if null, empty, or already shown
+                if (value == null || value.toString().isEmpty()) continue;
+                if (key.equals("input_key") || key.equals("output_key")) continue;
+
+                // Format the parameter nicely
+                String formattedValue = formatParameterValue(value);
+                otherParams.add(key + ": " + formattedValue);
+            }
+
+            // Show other params grouped if there are multiple
+            if (!otherParams.isEmpty()) {
+                if (otherParams.size() <= 3) {
+                    // Show all if few
+                    displayLines.addAll(otherParams);
+                } else {
+                    // Show first 2 and count
+                    displayLines.addAll(otherParams.subList(0, 2));
+                    displayLines.add("... +" + (otherParams.size() - 2) + " more");
+                }
+            }
+
+            // Create labels for each line
+            for (String line : displayLines) {
+                Label paramLabel = new Label(line);
+                paramLabel.getStyleClass().add("param-text");
+                paramContainer.getChildren().add(paramLabel);
+            }
+
+            // If no parameters were shown
+            if (displayLines.isEmpty()) {
+                Label noParams = new Label("No parameters set");
+                noParams.getStyleClass().add("param-text-muted");
+                paramContainer.getChildren().add(noParams);
+            }
+        }
+
+        /**
+         * Get parameter as string, or null if empty.
+         */
+        private String getParamString(Map<String, Object> params, String key) {
+            Object value = params.get(key);
+            if (value == null || value.toString().isEmpty()) {
+                return null;
+            }
+            return value.toString();
+        }
+
+        /**
+         * Format parameter value for display (truncate long strings).
+         */
+        private String formatParameterValue(Object value) {
+            String str = value.toString();
+
+            // Truncate file paths to just filename
+            if (str.contains("/") || str.contains("\\")) {
+                int lastSlash = Math.max(str.lastIndexOf('/'), str.lastIndexOf('\\'));
+                if (lastSlash >= 0 && lastSlash < str.length() - 1) {
+                    return "..." + str.substring(lastSlash);
+                }
+            }
+
+            // Truncate very long values
+            if (str.length() > 40) {
+                return str.substring(0, 37) + "...";
+            }
+
+            return str;
         }
 
         private void updateStatusIndicator(ToolInstance.Status status) {

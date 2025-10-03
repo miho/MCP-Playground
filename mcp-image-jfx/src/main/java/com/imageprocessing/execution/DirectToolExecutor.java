@@ -198,12 +198,12 @@ public class DirectToolExecutor {
         String imagePath = getStringParam(params, "image_path");
         String imageUrl = getStringParam(params, "image_url");
         String imageData = getStringParam(params, "image_data");
-        String resultKey = getStringParam(params, "result_key");
+        String outputKey = getStringParam(params, "output_key");
 
         Mat image = OpenCVImageProcessor.loadImage(imagePath, imageUrl, imageData);
 
-        if (resultKey != null && !resultKey.isBlank()) {
-            cache.put(resultKey, image);
+        if (outputKey != null && !outputKey.isBlank()) {
+            cache.put(outputKey, image);
         } else {
             image.release();
         }
@@ -350,7 +350,7 @@ public class DirectToolExecutor {
         Mat image = getInputImage(params);
 
         // Get the cache key if the image is cached
-        String cacheKey = getStringParam(params, "result_key");
+        String cacheKey = getStringParam(params, "input_key");
 
         // If we have a callback and cache key, trigger the display
         if (displayImageCallback != null && cacheKey != null && !cacheKey.isBlank()) {
@@ -370,7 +370,7 @@ public class DirectToolExecutor {
     // ==================== HELPER METHODS ====================
 
     private Mat getInputImage(Map<String, Object> params) throws Exception {
-        return getInputImageWithKey(params, "result_key", "image_path", "image_url", "image_data");
+        return getInputImageWithKey(params, "input_key", "image_path", "image_url", "image_data");
     }
 
     private Mat getInputImageWithKey(Map<String, Object> params,
@@ -413,7 +413,7 @@ public class DirectToolExecutor {
     }
 
     private void releaseInputIfNotCached(Map<String, Object> params, Mat image) {
-        releaseInputIfNotCached(params, image, "result_key");
+        releaseInputIfNotCached(params, image, "input_key");
     }
 
     private void releaseInputIfNotCached(Map<String, Object> params, Mat image, String cacheKey) {

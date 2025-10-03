@@ -131,7 +131,7 @@ public class ParameterEditorPane extends VBox {
             case IMAGE_PATH:
                 controlNode = createImagePathField(param, currentValue);
                 break;
-            case RESULT_KEY:
+            case INPUT_KEY:
                 controlNode = createResultKeyComboBox(param, currentValue);
                 break;
             case OUTPUT_PATH:
@@ -411,26 +411,17 @@ public class ParameterEditorPane extends VBox {
 
     /**
      * Collect all output keys from tools in the workflow.
-     * This includes both 'output_key' and 'result_key' parameters (load_image uses result_key as output).
+     * This includes 'output_key' parameters from all tools (including load_image).
      */
     private Set<String> collectAvailableOutputKeys() {
         Set<String> keys = new HashSet<>();
 
         if (workflowModel != null) {
             for (ToolInstance tool : workflowModel.getToolInstances()) {
-                // Check for output_key (most processing tools)
+                // Check for output_key (all tools that produce output)
                 Object outputKey = tool.getParameter("output_key");
                 if (outputKey != null && !outputKey.toString().isEmpty()) {
                     keys.add(outputKey.toString());
-                }
-
-                // Check for result_key from load_image (it's both input and output depending on tool)
-                // For load_image, result_key is the output
-                if ("load_image".equals(tool.getName())) {
-                    Object resultKey = tool.getParameter("result_key");
-                    if (resultKey != null && !resultKey.toString().isEmpty()) {
-                        keys.add(resultKey.toString());
-                    }
                 }
             }
         }

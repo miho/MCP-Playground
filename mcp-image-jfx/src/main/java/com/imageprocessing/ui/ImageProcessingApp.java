@@ -157,6 +157,7 @@ public class ImageProcessingApp extends Application {
         isDarkTheme = !isDarkTheme;
         applyTheme();
         controller.getControlBar().updateThemeIcon(isDarkTheme);
+        controller.getToolPipelinePane().setDarkTheme(isDarkTheme);
     }
 
     /**
