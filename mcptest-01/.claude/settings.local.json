@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew dependencies:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(./gradlew:*)",
+      "Bash(.gradlew.bat clean:*)",
+      "Bash(.gradlew.bat build --info)",
+      "Bash(Select-String -Pattern \"error|ERROR|McpJsonMapper|Tool|constructor\" -Context 2,2)",
+      "Bash(.gradlew.bat build)",
+      "Bash(dir:*)",
+      "Bash(cmd /c:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:central.sonatype.com)",
+      "Bash(findstr:*)",
+      "Bash(Select-String -Pattern \"error|success|BUILD\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(Select-String -Pattern \"BUILD|error|ERROR\" -Context 1,1)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
