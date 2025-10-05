@@ -6,6 +6,7 @@ import com.devicesim.model.Location;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -33,6 +34,7 @@ public class DeviceSimulator {
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final List<Location> locations = new ArrayList<>();
+    private final List<SimulatorStateListener> listeners = new CopyOnWriteArrayList<>();
 
     private DeviceState currentState;
     private int currentTargetIndex = -1;
@@ -81,10 +83,21 @@ public class DeviceSimulator {
             }
 
             // Set first target if available
+            Location firstTarget = null;
             if (!locations.isEmpty()) {
-                Location firstTarget = locations.get(0);
+                firstTarget = locations.get(0);
                 currentState = currentState.withTarget(firstTarget.getX(), firstTarget.getY());
             }
+
+            // Notify listeners
+            Location finalFirstTarget = firstTarget;
+            int targetIndex = this.currentTargetIndex;
+            notifyListeners(listener -> {
+                listener.onLocationsChanged(new ArrayList<>(this.locations));
+                if (finalFirstTarget != null) {
+                    listener.onTargetChanged(targetIndex, finalFirstTarget);
+                }
+            });
         } finally {
             lock.writeLock().unlock();
         }
@@ -122,17 +135,25 @@ public class DeviceSimulator {
 
             // Check if we've reached the target
             if (distanceToTarget <= ARRIVAL_THRESHOLD) {
-                // Stop at target
+                // Arrive at target
                 currentState = currentState
                         .withPosition(target.getX(), target.getY())
-                        .withSpeed(0.0)
-                        .withMoving(false);
+                        .withSpeed(0.0);
 
                 target.setVisited(true);
 
                 // Auto-advance to next target if enabled
                 if (autoAdvance && currentTargetIndex < locations.size() - 1) {
                     moveToNextTarget();
+                    // Keep moving if auto-advance moved us to a new target
+                    if (currentTargetIndex < locations.size()) {
+                        currentState = currentState.withMoving(true);
+                    } else {
+                        currentState = currentState.withMoving(false);
+                    }
+                } else {
+                    // No auto-advance or no more targets - stop
+                    currentState = currentState.withMoving(false);
                 }
 
                 return;
@@ -164,13 +185,21 @@ public class DeviceSimulator {
             if (distanceToMove >= distanceToTarget) {
                 currentState = currentState
                         .withPosition(target.getX(), target.getY())
-                        .withSpeed(0.0)
-                        .withMoving(false);
+                        .withSpeed(0.0);
 
                 target.setVisited(true);
 
                 if (autoAdvance && currentTargetIndex < locations.size() - 1) {
                     moveToNextTarget();
+                    // Keep moving if auto-advance moved us to a new target
+                    if (currentTargetIndex < locations.size()) {
+                        currentState = currentState.withMoving(true);
+                    } else {
+                        currentState = currentState.withMoving(false);
+                    }
+                } else {
+                    // No auto-advance or no more targets - stop
+                    currentState = currentState.withMoving(false);
                 }
             } else {
                 // Move toward target
@@ -199,7 +228,11 @@ public class DeviceSimulator {
 
         lock.writeLock().lock();
         try {
-            currentState = currentState.withMaxSpeed(maxSpeed);
+            // Only update and notify if value actually changed
+            if (Math.abs(currentState.getMaxSpeed() - maxSpeed) > 0.001) {
+                currentState = currentState.withMaxSpeed(maxSpeed);
+                notifyListeners(listener -> listener.onSpeedChanged(maxSpeed));
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -218,7 +251,11 @@ public class DeviceSimulator {
 
         lock.writeLock().lock();
         try {
-            currentState = currentState.withAcceleration(acceleration);
+            // Only update and notify if value actually changed
+            if (Math.abs(currentState.getAcceleration() - acceleration) > 0.001) {
+                currentState = currentState.withAcceleration(acceleration);
+                notifyListeners(listener -> listener.onAccelerationChanged(acceleration));
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -278,8 +315,18 @@ public class DeviceSimulator {
         lock.writeLock().lock();
         try {
             if (currentTargetIndex >= 0 && currentTargetIndex < locations.size()) {
-                locations.get(currentTargetIndex).setVisited(true);
+                Location visitedLocation = locations.get(currentTargetIndex);
+                int visitedIndex = currentTargetIndex;
+                visitedLocation.setVisited(true);
+
+                notifyListeners(listener -> listener.onLocationVisited(visitedLocation, visitedIndex));
+
                 moveToNextTarget();
+
+                // If auto-advance is enabled and there are more targets, keep moving
+                if (autoAdvance && currentTargetIndex < locations.size()) {
+                    currentState = currentState.withMoving(true);
+                }
             }
         } finally {
             lock.writeLock().unlock();
@@ -293,9 +340,10 @@ public class DeviceSimulator {
     public void startMovement() {
         lock.writeLock().lock();
         try {
-            if (currentTargetIndex >= 0 && currentTargetIndex < locations.size()) {
+            if (currentTargetIndex >= 0 && currentTargetIndex < locations.size() && !currentState.isMoving()) {
                 resetDuration();
                 currentState = currentState.withMoving(true);
+                notifyListeners(listener -> listener.onMovementStateChanged(true));
             }
         } finally {
             lock.writeLock().unlock();
@@ -309,9 +357,12 @@ public class DeviceSimulator {
     public void stopMovement() {
         lock.writeLock().lock();
         try {
-            currentState = currentState
-                    .withMoving(false)
-                    .withSpeed(0.0);
+            if (currentState.isMoving()) {
+                currentState = currentState
+                        .withMoving(false)
+                        .withSpeed(0.0);
+                notifyListeners(listener -> listener.onMovementStateChanged(false));
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -370,8 +421,11 @@ public class DeviceSimulator {
             Location nextTarget = locations.get(currentTargetIndex);
             currentState = currentState
                     .withTarget(nextTarget.getX(), nextTarget.getY())
-                    .withSpeed(0.0)
-                    .withMoving(autoAdvance);
+                    .withSpeed(0.0);
+            // Movement state is set by the caller based on context
+
+            int targetIndex = currentTargetIndex;
+            notifyListeners(listener -> listener.onTargetChanged(targetIndex, nextTarget));
         }
     }
 
@@ -405,6 +459,8 @@ public class DeviceSimulator {
                         .withSpeed(0.0)
                         .withMoving(false);
             }
+
+            notifyListeners(SimulatorStateListener::onReset);
         } finally {
             lock.writeLock().unlock();
         }
@@ -433,6 +489,43 @@ public class DeviceSimulator {
             totalDuration = 0.0;
         } finally {
             lock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Adds a state listener to receive notifications about simulator state changes.
+     *
+     * @param listener the listener to add
+     */
+    public void addStateListener(SimulatorStateListener listener) {
+        if (listener != null && !listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+
+    /**
+     * Removes a state listener.
+     *
+     * @param listener the listener to remove
+     */
+    public void removeStateListener(SimulatorStateListener listener) {
+        listeners.remove(listener);
+    }
+
+    /**
+     * Notifies all registered listeners.
+     * This method is safe to call while holding locks.
+     *
+     * @param notification the notification function to apply to each listener
+     */
+    private void notifyListeners(java.util.function.Consumer<SimulatorStateListener> notification) {
+        for (SimulatorStateListener listener : listeners) {
+            try {
+                notification.accept(listener);
+            } catch (Exception e) {
+                // Log but don't propagate listener exceptions
+                System.err.println("Error notifying listener: " + e.getMessage());
+            }
         }
     }
 }

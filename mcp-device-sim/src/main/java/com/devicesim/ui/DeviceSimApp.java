@@ -1,7 +1,9 @@
 package com.devicesim.ui;
 
 import com.devicesim.data.CsvDataReader;
+import com.devicesim.data.CsvStateManager;
 import com.devicesim.engine.DeviceSimulator;
+import com.devicesim.engine.SimulatorStateListener;
 import com.devicesim.mcp.DirectToolExecutor;
 import com.devicesim.mcp.McpConfig;
 import com.devicesim.mcp.ServerLauncher;
@@ -28,7 +30,7 @@ import java.util.Map;
  *
  * @since 1.0.0
  */
-public class DeviceSimApp extends Application {
+public class DeviceSimApp extends Application implements SimulatorStateListener, CsvStateManager.CsvStateListener {
 
     private static final Logger logger = LoggerFactory.getLogger(DeviceSimApp.class);
     private static final double CANVAS_WIDTH = 800;
@@ -64,6 +66,10 @@ public class DeviceSimApp extends Application {
         simulator = new DeviceSimulator(0.0, 0.0);
         csvReader = new CsvDataReader();
         toolExecutor = new DirectToolExecutor(simulator, csvReader);
+
+        // Register this UI as a state listener
+        simulator.addStateListener(this);
+        CsvStateManager.getInstance().addListener(this);
 
         // Build MCP config from CLI options or use default
         boolean mcpEnabled = true;
@@ -379,6 +385,12 @@ public class DeviceSimApp extends Application {
     public void stop() {
         logger.info("Stopping application");
 
+        // Unregister listeners
+        if (simulator != null) {
+            simulator.removeStateListener(this);
+        }
+        CsvStateManager.getInstance().removeListener(this);
+
         if (animationTimer != null) {
             animationTimer.stop();
         }
@@ -390,6 +402,118 @@ public class DeviceSimApp extends Application {
         if (serverLauncher != null) {
             serverLauncher.shutdown();
         }
+    }
+
+    // ==================== SimulatorStateListener Implementation ====================
+
+    @Override
+    public void onLocationsChanged(List<Location> locations) {
+        Platform.runLater(() -> {
+            logger.info("Locations changed via MCP: {} locations", locations.size());
+            updateLocationList();
+            canvas.render();
+            statusBar.showSuccess(String.format("Loaded %d locations via MCP", locations.size()));
+            logPanel.logMessage(String.format("MCP: Loaded %d locations", locations.size()));
+        });
+    }
+
+    @Override
+    public void onTargetChanged(int targetIndex, Location target) {
+        Platform.runLater(() -> {
+            if (target != null) {
+                logger.info("Target changed to: {} at index {}", target.getId(), targetIndex);
+                updateLocationList();
+                canvas.render();
+                statusBar.setStatus("Target changed to: " + target.getId());
+            }
+        });
+    }
+
+    @Override
+    public void onLocationVisited(Location location, int index) {
+        Platform.runLater(() -> {
+            logger.info("Location visited: {}", location.getId());
+            updateLocationList();
+            canvas.render();
+            logPanel.logDeviceAction("MCP: Marked location as visited: " + location.getId());
+        });
+    }
+
+    @Override
+    public void onSpeedChanged(double maxSpeed) {
+        Platform.runLater(() -> {
+            logger.info("Speed changed to: {}", maxSpeed);
+            controlPanel.setSpeed(maxSpeed);
+            logPanel.logDeviceAction(String.format("MCP: Speed set to %.1f u/s", maxSpeed));
+        });
+    }
+
+    @Override
+    public void onAccelerationChanged(double acceleration) {
+        Platform.runLater(() -> {
+            logger.info("Acceleration changed to: {}", acceleration);
+            controlPanel.setAcceleration(acceleration);
+            logPanel.logDeviceAction(String.format("MCP: Acceleration set to %.1f u/s²", acceleration));
+        });
+    }
+
+    @Override
+    public void onReset() {
+        Platform.runLater(() -> {
+            logger.info("Simulator reset via MCP");
+            isRunning = false;
+            controlPanel.setRunning(false);
+            updateLocationList();
+            canvas.render();
+            statusBar.setStatus("Simulator reset via MCP");
+            logPanel.logDeviceAction("MCP: Simulator reset");
+        });
+    }
+
+    @Override
+    public void onMovementStateChanged(boolean moving) {
+        Platform.runLater(() -> {
+            logger.info("Movement state changed to: {}", moving ? "started" : "stopped");
+            isRunning = moving;
+            controlPanel.setRunning(moving);
+            statusBar.setStatus(moving ? "Device moving (via MCP)" : "Device stopped (via MCP)");
+            logPanel.logDeviceAction(moving ? "MCP: Movement started" : "MCP: Movement stopped");
+        });
+    }
+
+    // ==================== CsvStateListener Implementation ====================
+
+    @Override
+    public void onHeadersRead(String filePath, List<String> headers) {
+        Platform.runLater(() -> {
+            logger.info("CSV headers read via MCP: {} from {}", headers.size(), filePath);
+            currentCsvPath = filePath;
+            controlPanel.setCsvPath(filePath);
+            controlPanel.updateHeaders(headers);
+            logPanel.logMessage(String.format("MCP: CSV headers loaded (%d columns) from %s", headers.size(),
+                    new File(filePath).getName()));
+            statusBar.setStatus("CSV file loaded via MCP");
+        });
+    }
+
+    @Override
+    public void onLocationsQueried(String filePath, String xColumn, String yColumn, int locationCount) {
+        Platform.runLater(() -> {
+            logger.info("CSV locations queried via MCP: {} locations, X={}, Y={}", locationCount, xColumn, yColumn);
+            currentCsvPath = filePath;
+            controlPanel.setCsvPath(filePath);
+            logPanel.logMessage(String.format("MCP: Queried %d locations (X=%s, Y=%s) from %s",
+                    locationCount, xColumn, yColumn, new File(filePath).getName()));
+
+            // Try to set the columns in the UI if they're available
+            try {
+                List<String> headers = csvReader.getHeaders(filePath);
+                controlPanel.updateHeaders(headers);
+                // Note: We can't set the selected X/Y columns directly in ComboBox without additional methods
+            } catch (Exception e) {
+                logger.warn("Failed to update headers after location query", e);
+            }
+        });
     }
 
     /**

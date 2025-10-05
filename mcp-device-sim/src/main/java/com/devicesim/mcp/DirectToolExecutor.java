@@ -1,6 +1,7 @@
 package com.devicesim.mcp;
 
 import com.devicesim.data.CsvDataReader;
+import com.devicesim.data.CsvStateManager;
 import com.devicesim.engine.DeviceSimulator;
 import com.devicesim.model.DeviceState;
 import com.devicesim.model.Location;
@@ -118,6 +119,9 @@ public class DirectToolExecutor {
         String filePath = getStringParam(params, "filePath");
         List<String> headers = csvReader.getHeaders(filePath);
 
+        // Notify CSV state manager
+        CsvStateManager.getInstance().notifyHeadersRead(filePath, headers);
+
         return String.format("CSV Headers (%d columns):\n%s",
                 headers.size(),
                 String.join(", ", headers));
@@ -154,6 +158,9 @@ public class DirectToolExecutor {
         }
 
         List<Location> locations = csvReader.readLocations(filePath, xColumn, yColumn, filters);
+
+        // Notify CSV state manager
+        CsvStateManager.getInstance().notifyLocationsQueried(filePath, xColumn, yColumn, locations.size());
 
         // Format as JSON array
         String jsonArray = locations.stream()
@@ -213,8 +220,9 @@ public class DirectToolExecutor {
         }
 
         simulator.setTargetLocations(locations);
+        simulator.setAutoAdvance(true); // Enable auto-advance for continuous movement
 
-        return String.format("Set %d target locations successfully.\nFirst target: %s",
+        return String.format("Set %d target locations successfully (auto-advance enabled).\nFirst target: %s",
                 locations.size(), locations.get(0).getId());
     }
 

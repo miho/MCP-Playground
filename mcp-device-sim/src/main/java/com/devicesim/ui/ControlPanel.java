@@ -49,6 +49,7 @@ public class ControlPanel extends VBox {
     private Runnable onReset;
     private Runnable onSpeedChange;
     private Runnable onAccelerationChange;
+    private boolean programmaticUpdate = false;
 
     public ControlPanel() {
         this.csvPathField = new TextField();
@@ -224,7 +225,7 @@ public class ControlPanel extends VBox {
 
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             speedLabel.setText(String.format("%.1f u/s", newVal.doubleValue()));
-            if (onSpeedChange != null) {
+            if (!programmaticUpdate && onSpeedChange != null) {
                 onSpeedChange.run();
             }
         });
@@ -253,7 +254,7 @@ public class ControlPanel extends VBox {
 
         accelerationSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             accelerationLabel.setText(String.format("%.1f u/s²", newVal.doubleValue()));
-            if (onAccelerationChange != null) {
+            if (!programmaticUpdate && onAccelerationChange != null) {
                 onAccelerationChange.run();
             }
         });
@@ -382,8 +383,20 @@ public class ControlPanel extends VBox {
         return speedSlider.getValue();
     }
 
+    public void setSpeed(double speed) {
+        programmaticUpdate = true;
+        speedSlider.setValue(speed);
+        programmaticUpdate = false;
+    }
+
     public double getAcceleration() {
         return accelerationSlider.getValue();
+    }
+
+    public void setAcceleration(double acceleration) {
+        programmaticUpdate = true;
+        accelerationSlider.setValue(acceleration);
+        programmaticUpdate = false;
     }
 
     public void setStatus(String status) {

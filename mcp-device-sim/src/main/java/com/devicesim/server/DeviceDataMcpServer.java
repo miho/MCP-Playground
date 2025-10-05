@@ -1,6 +1,7 @@
 package com.devicesim.server;
 
 import com.devicesim.data.CsvDataReader;
+import com.devicesim.data.CsvStateManager;
 import com.devicesim.engine.DeviceSimulator;
 import com.devicesim.model.DeviceState;
 import com.devicesim.model.Location;
@@ -131,6 +132,10 @@ public class DeviceDataMcpServer {
                         String filePath = getStringArg(args, "filePath");
 
                         List<String> headers = csvReader.getHeaders(filePath);
+
+                        // Notify CSV state manager
+                        CsvStateManager.getInstance().notifyHeadersRead(filePath, headers);
+
                         String headersJson = headers.stream()
                                 .map(h -> "\"" + h + "\"")
                                 .collect(Collectors.joining(", "));
@@ -215,6 +220,9 @@ public class DeviceDataMcpServer {
                         }
 
                         List<Location> locations = csvReader.readLocations(filePath, xColumn, yColumn, filters);
+
+                        // Notify CSV state manager
+                        CsvStateManager.getInstance().notifyLocationsQueried(filePath, xColumn, yColumn, locations.size());
 
                         // Format as JSON array
                         String jsonArray = locations.stream()
@@ -347,9 +355,10 @@ public class DeviceDataMcpServer {
                         }
 
                         simulator.setTargetLocations(locations);
+                        simulator.setAutoAdvance(true); // Enable auto-advance for continuous movement
 
                         String message = String.format(
-                                "Set %d target locations successfully. First target: %s",
+                                "Set %d target locations successfully (auto-advance enabled). First target: %s",
                                 locations.size(), locations.get(0).getId());
 
                         return Mono.just(new McpSchema.CallToolResult.Builder()
@@ -601,6 +610,10 @@ public class DeviceDataMcpServer {
                             String filePath = getStringArg(args, "filePath");
 
                             List<String> headers = reader.getHeaders(filePath);
+
+                            // Notify CSV state manager
+                            CsvStateManager.getInstance().notifyHeadersRead(filePath, headers);
+
                             String headersJson = headers.stream()
                                     .map(h -> "\"" + h + "\"")
                                     .collect(Collectors.joining(", "));
@@ -662,6 +675,9 @@ public class DeviceDataMcpServer {
 
                             Map<String, CsvDataReader.FilterCriteria> filters = parseFilters(args);
                             List<Location> locations = reader.readLocations(filePath, xColumn, yColumn, filters);
+
+                            // Notify CSV state manager
+                            CsvStateManager.getInstance().notifyLocationsQueried(filePath, xColumn, yColumn, locations.size());
 
                             String jsonArray = locations.stream()
                                     .map(loc -> String.format(
@@ -795,9 +811,10 @@ public class DeviceDataMcpServer {
                             }
 
                             sharedSimulator.setTargetLocations(locations);
+                            sharedSimulator.setAutoAdvance(true); // Enable auto-advance for continuous movement
 
                             String message = String.format(
-                                    "Set %d target locations successfully. First target: %s",
+                                    "Set %d target locations successfully (auto-advance enabled). First target: %s",
                                     locations.size(), locations.get(0).getId());
 
                             return new McpSchema.CallToolResult.Builder()
