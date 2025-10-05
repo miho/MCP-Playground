@@ -41,7 +41,9 @@ public class LocationListPanel extends VBox {
         setSpacing(10);
         setPadding(new Insets(10));
         setStyle("-fx-background-color: #2b2b2b;");
+        setMinWidth(150);
         setPrefWidth(250);
+        setMaxWidth(Double.MAX_VALUE);
 
         // Title
         Label title = new Label("Locations");

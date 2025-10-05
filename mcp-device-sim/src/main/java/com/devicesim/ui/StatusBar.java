@@ -26,6 +26,7 @@ public class StatusBar extends HBox {
     private final Label positionLabel;
     private final Label targetLabel;
     private final Label speedLabel;
+    private final Label durationLabel;
 
     public StatusBar() {
         this.statusMessage = new SimpleStringProperty("Ready");
@@ -54,6 +55,10 @@ public class StatusBar extends HBox {
         speedLabel = new Label("Speed: 0.0 u/s");
         speedLabel.setStyle("-fx-text-fill: #f39c12; -fx-font-size: 11px;");
 
+        // Duration label
+        durationLabel = new Label("Duration: 0.0 s");
+        durationLabel.setStyle("-fx-text-fill: #9b59b6; -fx-font-size: 11px;");
+
         // Server info box
         HBox serverBox = new HBox(8);
         serverBox.setAlignment(Pos.CENTER_LEFT);
@@ -62,7 +67,7 @@ public class StatusBar extends HBox {
         // Device info box
         HBox deviceBox = new HBox(15);
         deviceBox.setAlignment(Pos.CENTER_LEFT);
-        deviceBox.getChildren().addAll(positionLabel, targetLabel, speedLabel);
+        deviceBox.getChildren().addAll(positionLabel, targetLabel, speedLabel, durationLabel);
 
         // General status message
         statusLabel = new Label();
@@ -143,6 +148,21 @@ public class StatusBar extends HBox {
      */
     public void setSpeed(double speed) {
         speedLabel.setText(String.format("Speed: %.2f u/s", speed));
+    }
+
+    /**
+     * Update duration display.
+     * Formats as "Duration: XX.X s" for times under 60 seconds,
+     * or "Duration: MM:SS" for times 60 seconds and above.
+     */
+    public void setDuration(double seconds) {
+        if (seconds < 60.0) {
+            durationLabel.setText(String.format("Duration: %.1f s", seconds));
+        } else {
+            int minutes = (int) (seconds / 60);
+            int secs = (int) (seconds % 60);
+            durationLabel.setText(String.format("Duration: %d:%02d", minutes, secs));
+        }
     }
 
     /**

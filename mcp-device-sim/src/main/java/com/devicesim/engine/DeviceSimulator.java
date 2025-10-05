@@ -37,6 +37,7 @@ public class DeviceSimulator {
     private DeviceState currentState;
     private int currentTargetIndex = -1;
     private boolean autoAdvance = false;
+    private double totalDuration = 0.0;
 
     /**
      * Constructs a new DeviceSimulator with default starting position (0, 0).
@@ -110,6 +111,9 @@ public class DeviceSimulator {
             if (!currentState.isMoving() || currentTargetIndex < 0 || currentTargetIndex >= locations.size()) {
                 return;
             }
+
+            // Track duration when moving
+            totalDuration += deltaTime;
 
             Location target = locations.get(currentTargetIndex);
             double dx = target.getX() - currentState.getX();
@@ -290,6 +294,7 @@ public class DeviceSimulator {
         lock.writeLock().lock();
         try {
             if (currentTargetIndex >= 0 && currentTargetIndex < locations.size()) {
+                resetDuration();
                 currentState = currentState.withMoving(true);
             }
         } finally {
@@ -379,6 +384,7 @@ public class DeviceSimulator {
         lock.writeLock().lock();
         try {
             currentTargetIndex = locations.isEmpty() ? -1 : 0;
+            resetDuration();
 
             for (Location loc : locations) {
                 loc.setVisited(false);
@@ -399,6 +405,32 @@ public class DeviceSimulator {
                         .withSpeed(0.0)
                         .withMoving(false);
             }
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Returns the total duration the device has been moving in seconds.
+     *
+     * @return total movement duration in seconds
+     */
+    public double getDuration() {
+        lock.readLock().lock();
+        try {
+            return totalDuration;
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Resets the duration counter to zero.
+     */
+    public void resetDuration() {
+        lock.writeLock().lock();
+        try {
+            totalDuration = 0.0;
         } finally {
             lock.writeLock().unlock();
         }

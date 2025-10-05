@@ -317,6 +317,9 @@ public class DeviceSimApp extends Application {
             statusBar.setPosition(state.getX(), state.getY());
             statusBar.setSpeed(state.getSpeed());
 
+            double duration = simulator.getDuration();
+            statusBar.setDuration(duration);
+
             if (currentTarget != null) {
                 statusBar.setTarget(currentTarget.getId(), currentTarget.getX(), currentTarget.getY());
             } else {
