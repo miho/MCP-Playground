@@ -1,0 +1,108 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'com.devicesim'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // MCP SDK
+    implementation platform('io.modelcontextprotocol.sdk:mcp-bom:0.13.1')
+    implementation 'io.modelcontextprotocol.sdk:mcp:0.13.1'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-simple:2.0.9'
+
+    // Embedded Jetty server for HTTP transport
+    implementation 'org.eclipse.jetty:jetty-server:11.0.20'
+    implementation 'org.eclipse.jetty:jetty-servlet:11.0.20'
+    implementation 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+
+    // JavaFX dependencies
+    implementation 'org.openjfx:javafx-controls:21.0.1'
+    implementation 'org.openjfx:javafx-fxml:21.0.1'
+    implementation 'org.openjfx:javafx-graphics:21.0.1'
+
+    // Jackson for JSON processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+
+    // CSV parsing
+    implementation 'com.opencsv:opencsv:5.9'
+
+    // CLI argument parsing
+    implementation 'info.picocli:picocli:4.7.5'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+javafx {
+    version = "21.0.1"
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics']
+}
+
+// Default application main class (JavaFX UI)
+application {
+    mainClass = 'com.devicesim.ui.DeviceSimApp'
+}
+
+// MCP Server fat JAR task
+tasks.register('serverJar', Jar) {
+    archiveBaseName.set('device-sim-mcp-server')
+    archiveClassifier.set('all')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes 'Main-Class': 'com.devicesim.server.DeviceDataMcpServer'
+    }
+
+    // Include compiled classes
+    from sourceSets.main.output
+
+    // Exclude UI classes
+    exclude 'com/devicesim/ui/**'
+
+    // Include dependencies (excluding JavaFX)
+    from {
+        configurations.runtimeClasspath.findAll {
+            !it.name.contains('javafx')
+        }.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+// Task to run MCP Server (standalone)
+tasks.register('runServer', JavaExec) {
+    group = 'application'
+    description = 'Run the MCP Server'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.devicesim.server.DeviceDataMcpServer'
+}
+
+// Task to run workflow example
+tasks.register('runExample', JavaExec) {
+    group = 'application'
+    description = 'Run the complete workflow example'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.devicesim.CompleteWorkflowExample'
+}
+
+// Enable JUnit Platform (Jupiter)
+tasks.named('test') {
+    useJUnitPlatform()
+}
