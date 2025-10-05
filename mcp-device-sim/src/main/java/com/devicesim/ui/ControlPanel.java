@@ -375,8 +375,20 @@ public class ControlPanel extends VBox {
         return xColumnCombo.getValue();
     }
 
+    public void setXColumn(String column) {
+        if (column != null && xColumnCombo.getItems().contains(column)) {
+            xColumnCombo.setValue(column);
+        }
+    }
+
     public String getYColumn() {
         return yColumnCombo.getValue();
+    }
+
+    public void setYColumn(String column) {
+        if (column != null && yColumnCombo.getItems().contains(column)) {
+            yColumnCombo.setValue(column);
+        }
     }
 
     public double getSpeed() {

@@ -505,11 +505,16 @@ public class DeviceSimApp extends Application implements SimulatorStateListener,
             logPanel.logMessage(String.format("MCP: Queried %d locations (X=%s, Y=%s) from %s",
                     locationCount, xColumn, yColumn, new File(filePath).getName()));
 
-            // Try to set the columns in the UI if they're available
+            // Update headers and set the selected X/Y columns in the UI
             try {
                 List<String> headers = csvReader.getHeaders(filePath);
                 controlPanel.updateHeaders(headers);
-                // Note: We can't set the selected X/Y columns directly in ComboBox without additional methods
+
+                // Set the selected columns in the combo boxes
+                controlPanel.setXColumn(xColumn);
+                controlPanel.setYColumn(yColumn);
+
+                logger.info("Updated UI with X={} and Y={} columns", xColumn, yColumn);
             } catch (Exception e) {
                 logger.warn("Failed to update headers after location query", e);
             }
