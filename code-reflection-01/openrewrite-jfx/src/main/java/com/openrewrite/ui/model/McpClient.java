@@ -133,12 +133,32 @@ public class McpClient {
      * Apply a recipe to transform source code.
      */
     public CompletableFuture<TransformationResult> applyRecipe(String sourceCode, String recipeName, String language) {
+        return applyRecipe(sourceCode, recipeName, language, null);
+    }
+
+    /**
+     * Apply a recipe to transform source code with custom options.
+     *
+     * @param sourceCode the source code to transform
+     * @param recipeName the name of the recipe to apply
+     * @param language the language of the source code
+     * @param options optional map of option name to value for recipe configuration
+     * @return CompletableFuture containing the transformation result
+     */
+    public CompletableFuture<TransformationResult> applyRecipe(String sourceCode, String recipeName, String language,
+                                                                Map<String, Object> options) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Map<String, Object> params = new HashMap<>();
                 params.put("sourceCode", sourceCode);
                 params.put("recipeName", recipeName);
                 params.put("language", language);
+
+                // Add options if provided
+                if (options != null && !options.isEmpty()) {
+                    params.put("options", options);
+                    logger.info("Applying recipe {} with options: {}", recipeName, options);
+                }
 
                 Map<String, Object> request = new HashMap<>();
                 request.put("jsonrpc", "2.0");
@@ -336,6 +356,23 @@ public class McpClient {
                 option.setDescription(optionNode.path("description").asText());
                 option.setType(optionNode.path("type").asText());
                 option.setRequired(optionNode.path("required").asBoolean(false));
+
+                // Parse default value if present
+                JsonNode defaultValueNode = optionNode.path("defaultValue");
+                if (!defaultValueNode.isMissingNode() && !defaultValueNode.isNull()) {
+                    if (defaultValueNode.isTextual()) {
+                        option.setDefaultValue(defaultValueNode.asText());
+                    } else if (defaultValueNode.isNumber()) {
+                        option.setDefaultValue(defaultValueNode.asText());
+                    } else if (defaultValueNode.isBoolean()) {
+                        option.setDefaultValue(defaultValueNode.asBoolean());
+                    } else if (defaultValueNode.isArray()) {
+                        List<String> list = new ArrayList<>();
+                        defaultValueNode.forEach(item -> list.add(item.asText()));
+                        option.setDefaultValue(list);
+                    }
+                }
+
                 options.add(option);
             });
             recipe.setOptions(options);

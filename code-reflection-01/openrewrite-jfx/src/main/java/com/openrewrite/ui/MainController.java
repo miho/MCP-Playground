@@ -2,6 +2,8 @@ package com.openrewrite.ui;
 
 import com.openrewrite.server.McpConfig;
 import com.openrewrite.server.ServerLauncher;
+import com.openrewrite.server.TransformationEvent;
+import com.openrewrite.server.TransformationEventBus;
 import com.openrewrite.ui.components.*;
 import com.openrewrite.ui.model.McpClient;
 import com.openrewrite.ui.model.Recipe;
@@ -23,6 +25,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public class MainController {
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
@@ -47,6 +50,10 @@ public class MainController {
     private ServerLauncher serverLauncher;
     private boolean mcpServerRunning = false;
     private boolean mcpServerEnabled = true;
+
+    // Event bus integration
+    private final TransformationEventBus eventBus;
+    private final Consumer<TransformationEvent> eventListener;
 
     /**
      * Create MainController with default HTTP MCP configuration.
@@ -79,8 +86,13 @@ public class MainController {
         this.recipeDetailsPane = new RecipeDetailsPane();
         this.recipeSearchField = new TextField();
 
+        // Initialize event bus integration
+        this.eventBus = TransformationEventBus.getInstance();
+        this.eventListener = this::handleTransformationEvent;
+
         setupUI();
         setupEventHandlers();
+        setupEventBusSubscription();
     }
 
     private void setupUI() {
@@ -129,6 +141,127 @@ public class MainController {
         recipeSearchField.textProperty().addListener((obs, oldText, newText) -> {
             filterRecipes(newText);
         });
+    }
+
+    /**
+     * Setup event bus subscription to listen for external transformation events.
+     */
+    private void setupEventBusSubscription() {
+        eventBus.subscribe(eventListener);
+        logger.info("Subscribed to TransformationEventBus");
+    }
+
+    /**
+     * Handle transformation events from the event bus.
+     * This method is called from the event bus thread, so UI updates must be
+     * marshalled to the JavaFX Application Thread using Platform.runLater().
+     *
+     * @param event the transformation event
+     */
+    private void handleTransformationEvent(TransformationEvent event) {
+        logger.info("Received transformation event: {}", event);
+
+        // Marshal UI updates to JavaFX Application Thread
+        Platform.runLater(() -> {
+            try {
+                switch (event.getType()) {
+                    case TRANSFORMATION_STARTED:
+                        handleTransformationStarted(event);
+                        break;
+
+                    case TRANSFORMATION_COMPLETED:
+                        handleTransformationCompleted(event);
+                        break;
+
+                    case TRANSFORMATION_FAILED:
+                        handleTransformationFailed(event);
+                        break;
+
+                    default:
+                        logger.warn("Unknown event type: {}", event.getType());
+                }
+            } catch (Exception e) {
+                logger.error("Error handling transformation event", e);
+                statusBar.showError("Error processing external transformation: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Handle transformation started event - update UI to show that a transformation is in progress.
+     */
+    private void handleTransformationStarted(TransformationEvent event) {
+        statusBar.setStatus("External transformation started: " + event.getRecipeName());
+        statusBar.showIndeterminateProgress();
+
+        // Update source code editor if it's different from current content
+        String currentSource = sourceCodeEditor.getText();
+        if (event.getSourceCode() != null && !event.getSourceCode().equals(currentSource)) {
+            sourceCodeEditor.setText(event.getSourceCode());
+        }
+
+        logger.debug("UI updated for transformation started: {}", event.getRecipeName());
+    }
+
+    /**
+     * Handle transformation completed event - update UI with the results.
+     */
+    private void handleTransformationCompleted(TransformationEvent event) {
+        // Update source code editor
+        if (event.getSourceCode() != null) {
+            sourceCodeEditor.setText(event.getSourceCode());
+        }
+
+        // Update transformed code editor
+        if (event.getTransformedCode() != null) {
+            transformedCodeEditor.setText(event.getTransformedCode());
+        }
+
+        // Update diff view
+        if (event.getSourceCode() != null && event.getTransformedCode() != null) {
+            diffViewer.showDiff(event.getSourceCode(), event.getTransformedCode());
+        }
+
+        // Update status bar
+        statusBar.hideProgress();
+        if (event.hasChanges()) {
+            statusBar.showSuccess("External transformation completed: " +
+                    event.getRecipeDisplayName() + " - changes detected");
+        } else {
+            statusBar.setStatus("External transformation completed: " +
+                    event.getRecipeDisplayName() + " - no changes needed");
+        }
+
+        logger.info("UI updated for completed transformation: {}", event.getRecipeName());
+    }
+
+    /**
+     * Handle transformation failed event - update UI to show the error.
+     */
+    private void handleTransformationFailed(TransformationEvent event) {
+        statusBar.hideProgress();
+        statusBar.showError("External transformation failed: " + event.getRecipeName());
+
+        // Update source code editor if provided
+        if (event.getSourceCode() != null) {
+            String currentSource = sourceCodeEditor.getText();
+            if (!event.getSourceCode().equals(currentSource)) {
+                sourceCodeEditor.setText(event.getSourceCode());
+            }
+        }
+
+        // Show error dialog with details
+        String errorMsg = event.getErrorMessage() != null ?
+                event.getErrorMessage() : "Unknown error";
+
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Transformation Failed");
+        alert.setHeaderText("External transformation failed");
+        alert.setContentText("Recipe: " + event.getRecipeName() + "\n\nError: " + errorMsg);
+        alert.showAndWait();
+
+        logger.error("Transformation failed for recipe: {}, error: {}",
+                event.getRecipeName(), errorMsg);
     }
 
     /**
@@ -352,12 +485,26 @@ public class MainController {
             return;
         }
 
+        // Validate recipe options if any are required
+        RecipeDetailsPane.ValidationResult validation = recipeDetailsPane.validateOptions();
+        if (!validation.isValid()) {
+            showAlert("Invalid Options", validation.getErrorMessage());
+            return;
+        }
+
+        // Get option values from the details pane
+        Map<String, Object> options = recipeDetailsPane.getOptionValues();
+
         statusBar.setStatus("Applying recipe: " + selectedRecipe.getName());
+        if (!options.isEmpty()) {
+            logger.info("Applying recipe with {} option(s)", options.size());
+        }
 
         CompletableFuture<TransformationResult> future = mcpClient.applyRecipe(
             sourceCode,
             selectedRecipe.getName(),
-            "java"
+            "java",
+            options
         );
 
         future.thenAccept(result -> {
@@ -562,6 +709,13 @@ public class MainController {
     }
 
     public void shutdown() {
+        // Unsubscribe from event bus
+        if (eventListener != null) {
+            eventBus.unsubscribe(eventListener);
+            logger.info("Unsubscribed from TransformationEventBus");
+        }
+
+        // Shutdown MCP client and server
         if (mcpClient != null) {
             mcpClient.disconnect();
         }

@@ -13,7 +13,14 @@ import org.openrewrite.yaml.YamlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InaccessibleObjectException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -22,6 +29,7 @@ public class RewriteEngine {
     private final Environment environment;
     private final ObjectMapper objectMapper;
     private final Map<String, Recipe> availableRecipes;
+    private final Map<String, Method> setterCache = new ConcurrentHashMap<>();
 
     public RewriteEngine() {
         this.objectMapper = new ObjectMapper();
@@ -112,10 +120,28 @@ public class RewriteEngine {
     }
 
     public Map<String, Object> applyRecipe(String sourceCode, String recipeName, String language) {
+        return applyRecipe(sourceCode, recipeName, language, null);
+    }
+
+    public Map<String, Object> applyRecipe(String sourceCode, String recipeName, String language,
+                                           Map<String, Object> options) {
         try {
             Recipe recipe = availableRecipes.get(recipeName);
             if (recipe == null) {
                 return Map.of("error", "Recipe not found: " + recipeName);
+            }
+
+            // Clone recipe before applying options to avoid thread safety issues
+            Recipe recipeInstance = recipe;
+            if (options != null && !options.isEmpty()) {
+                logger.info("Applying recipe {} with options: {}", recipeName, options);
+                recipeInstance = cloneRecipe(recipe);
+                if (recipeInstance != null) {
+                    recipeInstance = applyOptionsToRecipe(recipeInstance, options);
+                } else {
+                    logger.warn("Could not clone recipe, using original instance");
+                    recipeInstance = recipe;
+                }
             }
 
             // Parse the source code - Parser.parse() returns Stream<SourceFile>
@@ -132,7 +158,7 @@ public class RewriteEngine {
             // Apply the recipe - Recipe.run expects LargeSourceSet
             // Use InMemoryLargeSourceSet from internal package
             LargeSourceSet lss = new InMemoryLargeSourceSet(sourceFiles);
-            RecipeRun recipeRun = recipe.run(lss, ctx);
+            RecipeRun recipeRun = recipeInstance.run(lss, ctx);
             List<Result> results = recipeRun.getChangeset().getAllResults();
 
             if (results.isEmpty()) {
@@ -166,6 +192,366 @@ public class RewriteEngine {
             logger.error("Error applying recipe", e);
             return Map.of("error", "Failed to apply recipe: " + e.getMessage());
         }
+    }
+
+    /**
+     * Clone a recipe instance to avoid thread safety issues.
+     * Attempts to create a new instance using reflection.
+     *
+     * @param recipe the recipe to clone
+     * @return a new instance of the recipe, or null if cloning fails
+     */
+    private Recipe cloneRecipe(Recipe recipe) {
+        try {
+            Class<?> recipeClass = recipe.getClass();
+
+            // Try no-arg constructor first
+            try {
+                Constructor<?> constructor = recipeClass.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                Recipe newInstance = (Recipe) constructor.newInstance();
+
+                // Copy existing values to new instance
+                copyRecipeProperties(recipe, newInstance);
+                return newInstance;
+            } catch (NoSuchMethodException e) {
+                // No no-arg constructor, try other approaches
+                logger.debug("No no-arg constructor for {}, trying alternatives", recipeClass.getName());
+            }
+
+            // If no no-arg constructor, return null (will use original)
+            return null;
+        } catch (Exception e) {
+            logger.error("Failed to clone recipe {}: {}", recipe.getClass().getName(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Copy properties from source recipe to target recipe.
+     */
+    private void copyRecipeProperties(Recipe source, Recipe target) {
+        try {
+            Class<?> clazz = source.getClass();
+            for (Method method : clazz.getMethods()) {
+                String name = method.getName();
+                if (name.startsWith("get") && method.getParameterCount() == 0) {
+                    String propertyName = name.substring(3);
+                    String setterName = "set" + propertyName;
+
+                    try {
+                        Method setter = clazz.getMethod(setterName, method.getReturnType());
+                        Object value = method.invoke(source);
+                        if (value != null) {
+                            setter.invoke(target, value);
+                        }
+                    } catch (NoSuchMethodException e) {
+                        // No corresponding setter, skip
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to copy recipe properties: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Apply configuration options to a recipe using reflection.
+     * OpenRewrite recipes are configured by calling setter methods on the recipe instance.
+     *
+     * @param recipe the recipe to configure
+     * @param options map of option name to value
+     * @return the configured recipe instance
+     */
+    private Recipe applyOptionsToRecipe(Recipe recipe, Map<String, Object> options) {
+        try {
+            // Use reflection to set recipe properties
+            Class<?> recipeClass = recipe.getClass();
+
+            for (Map.Entry<String, Object> entry : options.entrySet()) {
+                String optionName = entry.getKey();
+                Object optionValue = entry.getValue();
+
+                if (optionValue == null) {
+                    continue;
+                }
+
+                // Try to find and invoke setter method
+                String setterName = "set" + capitalize(optionName);
+                try {
+                    // Try to find setter method with matching parameter type
+                    Method setter = findSetter(recipeClass, setterName, optionValue);
+                    if (setter != null) {
+                        // Try to set accessible safely
+                        try {
+                            if (!setter.canAccess(recipe)) {
+                                setter.setAccessible(true);
+                            }
+                        } catch (InaccessibleObjectException e) {
+                            logger.warn("Cannot access setter {} due to module restrictions", setterName);
+                            continue;
+                        }
+
+                        setter.invoke(recipe, convertValue(optionValue, setter.getParameterTypes()[0]));
+                        logger.debug("Set recipe option {} = {}", optionName, optionValue);
+                    } else {
+                        logger.warn("Could not find setter {} for option {}", setterName, optionName);
+                    }
+                } catch (InvocationTargetException e) {
+                    logger.warn("Failed to invoke setter for option {}: {}", optionName,
+                        e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+                } catch (Exception e) {
+                    logger.warn("Failed to set option {}: {}", optionName, e.getMessage());
+                }
+            }
+
+            return recipe;
+        } catch (Exception e) {
+            logger.error("Error applying options to recipe", e);
+            return recipe;
+        }
+    }
+
+    /**
+     * Find a setter method that matches the given name and can accept the value.
+     * Prefers exact type matches over assignable matches.
+     */
+    private Method findSetter(Class<?> clazz, String setterName, Object value) {
+        // Check cache first
+        String cacheKey = clazz.getName() + "#" + setterName;
+        Method cached = setterCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        Method exactMatch = null;
+        Method assignableMatch = null;
+        Method firstCandidate = null;
+
+        for (Method method : clazz.getMethods()) {
+            if (!method.getName().equals(setterName) || method.getParameterCount() != 1) {
+                continue;
+            }
+
+            Class<?> paramType = method.getParameterTypes()[0];
+
+            // Store first candidate regardless
+            if (firstCandidate == null) {
+                firstCandidate = method;
+            }
+
+            if (value != null) {
+                Class<?> valueClass = value.getClass();
+
+                // Check for exact type match
+                if (paramType.equals(valueClass)) {
+                    exactMatch = method;
+                    break; // Exact match found, no need to continue
+                }
+
+                // Check for primitive/wrapper compatibility
+                if (isPrimitiveCompatible(paramType, valueClass)) {
+                    exactMatch = method;
+                    break;
+                }
+
+                // Check for assignable match
+                if (paramType.isAssignableFrom(valueClass)) {
+                    if (assignableMatch == null) {
+                        assignableMatch = method;
+                    }
+                }
+            }
+        }
+
+        // Determine which method to use
+        Method result = exactMatch != null ? exactMatch :
+                        assignableMatch != null ? assignableMatch : firstCandidate;
+
+        // Cache the result
+        if (result != null) {
+            setterCache.put(cacheKey, result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Check if a primitive type and wrapper type are compatible.
+     */
+    private boolean isPrimitiveCompatible(Class<?> type1, Class<?> type2) {
+        if (type1.isPrimitive()) {
+            return (type1 == int.class && type2 == Integer.class) ||
+                   (type1 == long.class && type2 == Long.class) ||
+                   (type1 == double.class && type2 == Double.class) ||
+                   (type1 == float.class && type2 == Float.class) ||
+                   (type1 == boolean.class && type2 == Boolean.class) ||
+                   (type1 == byte.class && type2 == Byte.class) ||
+                   (type1 == short.class && type2 == Short.class) ||
+                   (type1 == char.class && type2 == Character.class);
+        } else if (type2.isPrimitive()) {
+            return isPrimitiveCompatible(type2, type1);
+        }
+        return false;
+    }
+
+    /**
+     * Convert a value to the target type if needed.
+     * Supports primitives, Pattern, Duration, Enum, Set, and custom types.
+     */
+    private Object convertValue(Object value, Class<?> targetType) {
+        if (value == null) {
+            return null;
+        }
+
+        // If value is already the correct type, return as-is
+        if (targetType.isAssignableFrom(value.getClass())) {
+            return value;
+        }
+
+        // Handle String conversions
+        if (targetType == String.class) {
+            return value.toString();
+        }
+
+        String valueStr = value.toString();
+
+        try {
+            // Handle primitive types and their wrappers
+            if (targetType == int.class || targetType == Integer.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).intValue();
+                }
+                return Integer.parseInt(valueStr);
+            } else if (targetType == long.class || targetType == Long.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).longValue();
+                }
+                return Long.parseLong(valueStr);
+            } else if (targetType == double.class || targetType == Double.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).doubleValue();
+                }
+                return Double.parseDouble(valueStr);
+            } else if (targetType == float.class || targetType == Float.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).floatValue();
+                }
+                return Float.parseFloat(valueStr);
+            } else if (targetType == boolean.class || targetType == Boolean.class) {
+                if (value instanceof Boolean) {
+                    return value;
+                }
+                return Boolean.parseBoolean(valueStr);
+            } else if (targetType == byte.class || targetType == Byte.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).byteValue();
+                }
+                return Byte.parseByte(valueStr);
+            } else if (targetType == short.class || targetType == Short.class) {
+                if (value instanceof Number) {
+                    return ((Number) value).shortValue();
+                }
+                return Short.parseShort(valueStr);
+            } else if (targetType == char.class || targetType == Character.class) {
+                if (valueStr.length() > 0) {
+                    return valueStr.charAt(0);
+                }
+                return '\0';
+            }
+
+            // Handle Pattern type for regex support
+            if (targetType == Pattern.class || targetType == java.util.regex.Pattern.class) {
+                return Pattern.compile(valueStr);
+            }
+
+            // Handle Duration type
+            if (targetType == Duration.class || targetType == java.time.Duration.class) {
+                // Support ISO-8601 duration format (e.g., PT1H30M) or simple seconds
+                if (valueStr.matches("\\d+")) {
+                    return Duration.ofSeconds(Long.parseLong(valueStr));
+                }
+                return Duration.parse(valueStr);
+            }
+
+            // Handle Enum types
+            if (targetType.isEnum()) {
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                Class<? extends Enum> enumType = (Class<? extends Enum>) targetType;
+                // Try exact match first
+                try {
+                    return Enum.valueOf(enumType, valueStr);
+                } catch (IllegalArgumentException e) {
+                    // Try case-insensitive match
+                    for (Enum<?> enumConstant : enumType.getEnumConstants()) {
+                        if (enumConstant.name().equalsIgnoreCase(valueStr)) {
+                            return enumConstant;
+                        }
+                    }
+                    throw e; // Re-throw if no match found
+                }
+            }
+
+            // Handle Set type
+            if (Set.class.isAssignableFrom(targetType)) {
+                if (value instanceof List) {
+                    return new LinkedHashSet<>((List<?>) value);
+                } else if (value instanceof Set) {
+                    return value;
+                } else {
+                    // Single value to Set
+                    return Set.of(valueStr);
+                }
+            }
+
+            // Handle List type
+            if (List.class.isAssignableFrom(targetType)) {
+                if (value instanceof List) {
+                    return value;
+                } else if (value instanceof Set) {
+                    return new ArrayList<>((Set<?>) value);
+                } else {
+                    // Single value to List
+                    return List.of(valueStr);
+                }
+            }
+
+            // Handle Map type (for complex configuration objects)
+            if (Map.class.isAssignableFrom(targetType) && value instanceof Map) {
+                return value;
+            }
+
+        } catch (NumberFormatException e) {
+            String errorMsg = String.format("Cannot convert '%s' to %s: invalid number format",
+                value, targetType.getSimpleName());
+            logger.error(errorMsg);
+            throw new IllegalArgumentException(errorMsg, e);
+        } catch (IllegalArgumentException e) {
+            String errorMsg = String.format("Cannot convert '%s' to %s: %s",
+                value, targetType.getSimpleName(), e.getMessage());
+            logger.error(errorMsg);
+            throw new IllegalArgumentException(errorMsg, e);
+        } catch (Exception e) {
+            String errorMsg = String.format("Failed to convert '%s' to %s: %s",
+                value, targetType.getSimpleName(), e.getMessage());
+            logger.error(errorMsg, e);
+            throw new IllegalArgumentException(errorMsg, e);
+        }
+
+        // If no conversion was possible, log warning and return original value
+        logger.warn("No conversion available from {} to {}, returning original value",
+            value.getClass().getSimpleName(), targetType.getSimpleName());
+        return value;
+    }
+
+    /**
+     * Capitalize the first letter of a string.
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
     public Map<String, Object> analyzeCode(String sourceCode, String language) {

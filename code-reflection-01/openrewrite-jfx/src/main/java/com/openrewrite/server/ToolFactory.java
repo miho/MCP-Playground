@@ -19,6 +19,7 @@ public class ToolFactory {
 
     private static final RewriteEngine rewriteEngine = new RewriteEngine();
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final TransformationEventBus eventBus = TransformationEventBus.getInstance();
 
     // ==================== ASYNC TOOLS (STDIO) ====================
 
@@ -117,6 +118,11 @@ public class ToolFactory {
                   "type": "string",
                   "description": "Source code language: java, kotlin, xml, gradle, yaml",
                   "default": "java"
+                },
+                "options": {
+                  "type": "object",
+                  "description": "Optional recipe configuration options as key-value pairs",
+                  "additionalProperties": true
                 }
               },
               "required": ["sourceCode", "recipeName"]
@@ -136,7 +142,35 @@ public class ToolFactory {
                         String recipeName = getStringArg(args, "recipeName");
                         String language = getStringArg(args, "language", "java");
 
-                        Map<String, Object> result = rewriteEngine.applyRecipe(sourceCode, recipeName, language);
+                        // Extract options if provided
+                        Map<String, Object> options = null;
+                        if (args.containsKey("options") && args.get("options") instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> extractedOptions = (Map<String, Object>) args.get("options");
+                            options = extractedOptions;
+                        }
+
+                        // Publish transformation started event
+                        eventBus.publishStarted(recipeName, sourceCode, language);
+
+                        // Apply the recipe with options
+                        Map<String, Object> result = rewriteEngine.applyRecipe(sourceCode, recipeName, language, options);
+
+                        // Check if transformation was successful
+                        if (result.containsKey("error")) {
+                            // Publish failure event
+                            String errorMsg = result.get("error").toString();
+                            eventBus.publishFailed(recipeName, sourceCode, language, errorMsg);
+                        } else {
+                            // Publish completion event
+                            String transformedCode = (String) result.getOrDefault("transformed", sourceCode);
+                            String recipeDisplayName = (String) result.getOrDefault("recipeDisplayName", recipeName);
+                            String diff = (String) result.get("diff");
+
+                            eventBus.publishCompleted(recipeName, recipeDisplayName,
+                                    sourceCode, transformedCode, language, diff);
+                        }
+
                         String jsonResult = objectMapper.writeValueAsString(result);
 
                         return Mono.just(new McpSchema.CallToolResult.Builder()
@@ -145,6 +179,17 @@ public class ToolFactory {
                                 .build());
 
                     } catch (Exception e) {
+                        // Publish failure event on exception
+                        try {
+                            var args = request.arguments();
+                            String sourceCode = getStringArg(args, "sourceCode");
+                            String recipeName = getStringArg(args, "recipeName");
+                            String language = getStringArg(args, "language", "java");
+                            eventBus.publishFailed(recipeName, sourceCode, language, e.getMessage());
+                        } catch (Exception ignored) {
+                            // If we can't even get the args, just log the error
+                        }
+
                         return Mono.just(new McpSchema.CallToolResult.Builder()
                                 .content(List.of(new McpSchema.TextContent("Error: " + e.getMessage())))
                                 .isError(true)
