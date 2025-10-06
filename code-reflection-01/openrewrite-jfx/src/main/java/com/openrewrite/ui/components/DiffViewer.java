@@ -24,6 +24,21 @@ public class DiffViewer extends BorderPane {
     private final ScrollPane scrollPane;
     private DiffMode diffMode = DiffMode.UNIFIED;
 
+    // Theme-aware colors for additions and deletions
+    private static final String DARK_ADDITION_BG = "#1a3a1a";
+    private static final String DARK_ADDITION_BORDER = "#2d5c2d";
+    private static final String DARK_ADDITION_TEXT = "#6ee7b7";
+    private static final String DARK_DELETION_BG = "#3a1a1a";
+    private static final String DARK_DELETION_BORDER = "#5c2d2d";
+    private static final String DARK_DELETION_TEXT = "#fca5a5";
+
+    private static final String LIGHT_ADDITION_BG = "#d1fae5";
+    private static final String LIGHT_ADDITION_BORDER = "#6ee7b7";
+    private static final String LIGHT_ADDITION_TEXT = "#065f46";
+    private static final String LIGHT_DELETION_BG = "#fee2e2";
+    private static final String LIGHT_DELETION_BORDER = "#fca5a5";
+    private static final String LIGHT_DELETION_TEXT = "#991b1b";
+
     public enum DiffMode {
         UNIFIED,    // Single column with +/- indicators
         SIDE_BY_SIDE // Two columns showing before/after
@@ -157,28 +172,53 @@ public class DiffViewer extends BorderPane {
             Text content = new Text(line.content);
             content.setFont(monoFont);
 
-            // Apply styling based on diff type
+            // Apply styling based on diff type (theme-aware)
+            boolean isDarkTheme = isDarkTheme();
             switch (line.type) {
                 case ADDITION:
-                    lineBox.setStyle("-fx-background-color: #d4edda; " +
-                            "-fx-border-color: #c3e6cb; " +
-                            "-fx-border-width: 0px 0px 0px 3px; " +
-                            "-fx-border-insets: 0px;");
-                    indicator.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
-                    content.setFill(Color.web("#155724"));
+                    if (isDarkTheme) {
+                        lineBox.setStyle("-fx-background-color: " + DARK_ADDITION_BG + "; " +
+                                "-fx-border-color: " + DARK_ADDITION_BORDER + "; " +
+                                "-fx-border-width: 0px 0px 0px 3px; " +
+                                "-fx-border-insets: 0px;");
+                        indicator.setStyle("-fx-text-fill: " + DARK_ADDITION_TEXT + "; -fx-font-weight: bold;");
+                        content.setFill(Color.web(DARK_ADDITION_TEXT));
+                    } else {
+                        lineBox.setStyle("-fx-background-color: " + LIGHT_ADDITION_BG + "; " +
+                                "-fx-border-color: " + LIGHT_ADDITION_BORDER + "; " +
+                                "-fx-border-width: 0px 0px 0px 3px; " +
+                                "-fx-border-insets: 0px;");
+                        indicator.setStyle("-fx-text-fill: " + LIGHT_ADDITION_TEXT + "; -fx-font-weight: bold;");
+                        content.setFill(Color.web(LIGHT_ADDITION_TEXT));
+                    }
                     break;
                 case DELETION:
-                    lineBox.setStyle("-fx-background-color: #f8d7da; " +
-                            "-fx-border-color: #f5c6cb; " +
-                            "-fx-border-width: 0px 0px 0px 3px; " +
-                            "-fx-border-insets: 0px;");
-                    indicator.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
-                    content.setFill(Color.web("#721c24"));
+                    if (isDarkTheme) {
+                        lineBox.setStyle("-fx-background-color: " + DARK_DELETION_BG + "; " +
+                                "-fx-border-color: " + DARK_DELETION_BORDER + "; " +
+                                "-fx-border-width: 0px 0px 0px 3px; " +
+                                "-fx-border-insets: 0px;");
+                        indicator.setStyle("-fx-text-fill: " + DARK_DELETION_TEXT + "; -fx-font-weight: bold;");
+                        content.setFill(Color.web(DARK_DELETION_TEXT));
+                    } else {
+                        lineBox.setStyle("-fx-background-color: " + LIGHT_DELETION_BG + "; " +
+                                "-fx-border-color: " + LIGHT_DELETION_BORDER + "; " +
+                                "-fx-border-width: 0px 0px 0px 3px; " +
+                                "-fx-border-insets: 0px;");
+                        indicator.setStyle("-fx-text-fill: " + LIGHT_DELETION_TEXT + "; -fx-font-weight: bold;");
+                        content.setFill(Color.web(LIGHT_DELETION_TEXT));
+                    }
                     break;
                 case CONTEXT:
-                    lineBox.setStyle("-fx-background-color: transparent;");
-                    indicator.setStyle("-fx-text-fill: #95a5a6;");
-                    content.setFill(Color.web("#2c3e50"));
+                    if (isDarkTheme) {
+                        lineBox.setStyle("-fx-background-color: transparent;");
+                        indicator.setStyle("-fx-text-fill: #6b7280;");
+                        content.setFill(Color.web("#9ca3af"));
+                    } else {
+                        lineBox.setStyle("-fx-background-color: transparent;");
+                        indicator.setStyle("-fx-text-fill: #9ca3af;");
+                        content.setFill(Color.web("#374151"));
+                    }
                     break;
             }
 
@@ -262,6 +302,24 @@ public class DiffViewer extends BorderPane {
      */
     public void setDiffMode(DiffMode mode) {
         this.diffMode = mode;
+    }
+
+    /**
+     * Check if the current scene is using dark theme.
+     */
+    private boolean isDarkTheme() {
+        // Check if the scene has dark theme stylesheet loaded
+        if (getScene() != null && getScene().getStylesheets() != null) {
+            for (String stylesheet : getScene().getStylesheets()) {
+                if (stylesheet.contains("dark-theme")) {
+                    return true;
+                } else if (stylesheet.contains("light-theme")) {
+                    return false;
+                }
+            }
+        }
+        // Default to dark theme if cannot determine
+        return true;
     }
 
     /**

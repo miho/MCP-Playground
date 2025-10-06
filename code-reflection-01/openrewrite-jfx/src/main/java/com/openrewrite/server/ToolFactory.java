@@ -33,7 +33,7 @@ public class ToolFactory {
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
-                        .name("listRecipes")
+                        .name("list_recipes")
                         .description("List all available OpenRewrite recipes with their descriptions")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())
@@ -73,7 +73,7 @@ public class ToolFactory {
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
-                        .name("getRecipeDescription")
+                        .name("get_recipe_description")
                         .description("Get detailed description and metadata for a specific OpenRewrite recipe")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())
@@ -125,7 +125,7 @@ public class ToolFactory {
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
-                        .name("applyRecipe")
+                        .name("apply_recipe")
                         .description("Apply an OpenRewrite recipe to transform source code")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())
@@ -175,7 +175,7 @@ public class ToolFactory {
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
-                        .name("analyzeCode")
+                        .name("analyze_code")
                         .description("Analyze source code and suggest applicable OpenRewrite recipes")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())
@@ -219,7 +219,7 @@ public class ToolFactory {
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
-                        .name("createCustomRecipe")
+                        .name("create_custom_recipe")
                         .description("Create a custom OpenRewrite recipe from YAML specification")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())

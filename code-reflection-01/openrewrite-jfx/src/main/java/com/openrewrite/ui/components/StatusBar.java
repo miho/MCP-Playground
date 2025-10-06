@@ -159,6 +159,13 @@ public class StatusBar extends HBox {
     }
 
     /**
+     * Update recipe count with custom text (e.g., for filtered results).
+     */
+    public void setRecipeCount(String countText) {
+        recipeCountLabel.setText(countText);
+    }
+
+    /**
      * Get the status message property for binding.
      */
     public StringProperty statusMessageProperty() {

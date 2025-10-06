@@ -1,6 +1,7 @@
 package com.openrewrite.ui;
 
 import com.openrewrite.server.McpConfig;
+import com.openrewrite.ui.model.Recipe;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -20,6 +21,9 @@ public class OpenRewriteApp extends Application {
     private Scene scene;
     private boolean isDarkTheme = true;
     private static McpCliOptions cliOptions;
+
+    private static final String DARK_THEME_CSS = "/css/dark-theme.css";
+    private static final String LIGHT_THEME_CSS = "/css/light-theme.css";
 
     @Override
     public void start(Stage primaryStage) {
@@ -49,11 +53,8 @@ public class OpenRewriteApp extends Application {
             // Build main layout
             BorderPane root = buildLayout();
 
-            // Create scene with stylesheet
+            // Create scene
             scene = new Scene(root, DEFAULT_WIDTH, DEFAULT_HEIGHT);
-            scene.getStylesheets().add(
-                getClass().getResource("/css/application.css").toExternalForm()
-            );
 
             // Apply default dark theme
             applyTheme();
@@ -113,8 +114,11 @@ public class OpenRewriteApp extends Application {
         // File menu
         Menu fileMenu = new Menu("File");
         MenuItem openItem = new MenuItem("Open File...");
+        openItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+O"));
         MenuItem saveItem = new MenuItem("Save Transformed Code...");
+        saveItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+S"));
         MenuItem exitItem = new MenuItem("Exit");
+        exitItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+Q"));
 
         openItem.setOnAction(e -> controller.openFile());
         saveItem.setOnAction(e -> controller.saveTransformedCode());
@@ -124,37 +128,45 @@ public class OpenRewriteApp extends Application {
 
         // Edit menu
         Menu editMenu = new Menu("Edit");
-        MenuItem undoItem = new MenuItem("Undo");
-        MenuItem redoItem = new MenuItem("Redo");
-        MenuItem copyItem = new MenuItem("Copy");
-        MenuItem pasteItem = new MenuItem("Paste");
+        MenuItem clearItem = new MenuItem("Clear Editors");
+        clearItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+Shift+C"));
+        clearItem.setOnAction(e -> controller.clearEditors());
 
-        editMenu.getItems().addAll(undoItem, redoItem, new SeparatorMenuItem(), copyItem, pasteItem);
+        editMenu.getItems().addAll(clearItem);
 
         // View menu
         Menu viewMenu = new Menu("View");
         CheckMenuItem darkThemeItem = new CheckMenuItem("Dark Theme");
         darkThemeItem.setSelected(isDarkTheme);
+        darkThemeItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+T"));
         darkThemeItem.setOnAction(e -> toggleTheme());
 
         MenuItem refreshRecipesItem = new MenuItem("Refresh Recipes");
+        refreshRecipesItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("F5"));
         refreshRecipesItem.setOnAction(e -> controller.refreshRecipes());
 
         viewMenu.getItems().addAll(darkThemeItem, new SeparatorMenuItem(), refreshRecipesItem);
 
         // Tools menu
         Menu toolsMenu = new Menu("Tools");
+        MenuItem applyRecipeItem = new MenuItem("Apply Recipe");
+        applyRecipeItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+R"));
+        applyRecipeItem.setOnAction(e -> controller.applySelectedRecipe());
+
         MenuItem analyzeCodeItem = new MenuItem("Analyze Code");
+        analyzeCodeItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+A"));
+        analyzeCodeItem.setOnAction(e -> controller.analyzeCurrentCode());
+
         MenuItem mcpSettingsItem = new MenuItem("MCP Settings...");
 
-        analyzeCodeItem.setOnAction(e -> controller.analyzeCurrentCode());
         mcpSettingsItem.setOnAction(e -> controller.showMcpSettings());
 
-        toolsMenu.getItems().addAll(analyzeCodeItem, new SeparatorMenuItem(), mcpSettingsItem);
+        toolsMenu.getItems().addAll(applyRecipeItem, analyzeCodeItem, new SeparatorMenuItem(), mcpSettingsItem);
 
         // Help menu
         Menu helpMenu = new Menu("Help");
         MenuItem aboutItem = new MenuItem("About");
+        aboutItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("F1"));
         MenuItem documentationItem = new MenuItem("OpenRewrite Documentation");
 
         aboutItem.setOnAction(e -> showAboutDialog());
@@ -168,48 +180,79 @@ public class OpenRewriteApp extends Application {
 
     private SplitPane createMainContent() {
         // Left panel: Recipe selection and configuration
-        VBox leftPanel = new VBox(10);
-        leftPanel.setPadding(new Insets(10));
+        VBox leftPanel = new VBox(12);
+        leftPanel.setPadding(new Insets(15));
+
+        // Recipe section header
+        Label recipesLabel = new Label("Available Recipes");
+        recipesLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
+
+        // Recipe search field
+        TextField searchField = controller.getRecipeSearchField();
+
+        // Recipe list view
+        ListView<Recipe> recipeList = controller.getRecipeListView();
+        VBox.setVgrow(recipeList, Priority.ALWAYS);
+
+        // Recipe details section header
+        Label detailsLabel = new Label("Recipe Details");
+        detailsLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+
         leftPanel.getChildren().addAll(
-            new Label("Available Recipes"),
-            controller.getRecipeListView(),
+            recipesLabel,
+            searchField,
+            recipeList,
             new Separator(),
-            new Label("Recipe Details"),
+            detailsLabel,
             controller.getRecipeDetailsPane()
         );
 
         ScrollPane leftScroll = new ScrollPane(leftPanel);
         leftScroll.setFitToWidth(true);
+        leftScroll.setFitToHeight(true);
 
         // Center panel: Code editor (original code)
-        VBox centerPanel = new VBox(5);
-        centerPanel.setPadding(new Insets(10));
+        VBox centerPanel = new VBox(8);
+        centerPanel.setPadding(new Insets(15));
         Label originalLabel = new Label("Original Code");
-        originalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        originalLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
+
+        // Add editor container with border
+        VBox editorContainer = new VBox(controller.getSourceCodeEditor());
+        editorContainer.setStyle("-fx-border-color: -fx-border-default; -fx-border-width: 1; -fx-border-radius: 6;");
+        VBox.setVgrow(editorContainer, Priority.ALWAYS);
+
         centerPanel.getChildren().addAll(
             originalLabel,
-            controller.getSourceCodeEditor()
+            editorContainer
         );
         VBox.setVgrow(controller.getSourceCodeEditor(), Priority.ALWAYS);
 
         // Right panel: Transformed code and diff view
-        VBox rightPanel = new VBox(5);
-        rightPanel.setPadding(new Insets(10));
+        VBox rightPanel = new VBox(8);
+        rightPanel.setPadding(new Insets(15));
 
         // Tab pane for transformed code and diff view
         TabPane resultTabs = new TabPane();
         resultTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
         Tab transformedTab = new Tab("Transformed Code");
-        transformedTab.setContent(controller.getTransformedCodeEditor());
+        VBox transformedContainer = new VBox(controller.getTransformedCodeEditor());
+        transformedContainer.setStyle("-fx-border-color: -fx-border-default; -fx-border-width: 1; -fx-border-radius: 6;");
+        VBox.setVgrow(controller.getTransformedCodeEditor(), Priority.ALWAYS);
+        VBox.setVgrow(transformedContainer, Priority.ALWAYS);
+        transformedTab.setContent(transformedContainer);
 
         Tab diffTab = new Tab("Diff View");
-        diffTab.setContent(controller.getDiffViewer());
+        VBox diffContainer = new VBox(controller.getDiffViewer());
+        VBox.setVgrow(controller.getDiffViewer(), Priority.ALWAYS);
+        VBox.setVgrow(diffContainer, Priority.ALWAYS);
+        diffTab.setContent(diffContainer);
 
         resultTabs.getTabs().addAll(transformedTab, diffTab);
 
         Label resultLabel = new Label("Transformation Result");
-        resultLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        resultLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 15px;");
         rightPanel.getChildren().addAll(resultLabel, resultTabs);
         VBox.setVgrow(resultTabs, Priority.ALWAYS);
 
@@ -227,27 +270,62 @@ public class OpenRewriteApp extends Application {
     }
 
     private void applyTheme() {
-        if (scene != null && scene.getRoot() != null) {
-            if (isDarkTheme) {
-                scene.getRoot().getStyleClass().remove("light-theme");
-                scene.getRoot().getStyleClass().add("dark-theme");
-            } else {
-                scene.getRoot().getStyleClass().remove("dark-theme");
-                scene.getRoot().getStyleClass().add("light-theme");
+        if (scene != null) {
+            // Clear existing stylesheets
+            scene.getStylesheets().clear();
+
+            // Apply the appropriate theme
+            String themeResource = isDarkTheme ? DARK_THEME_CSS : LIGHT_THEME_CSS;
+            try {
+                String themePath = getClass().getResource(themeResource).toExternalForm();
+                scene.getStylesheets().add(themePath);
+                logger.info("Applied theme: {}", isDarkTheme ? "Dark" : "Light");
+            } catch (Exception e) {
+                logger.error("Failed to load theme: {}", themeResource, e);
+                // Fallback to old application.css if theme files are not found
+                try {
+                    scene.getStylesheets().add(
+                        getClass().getResource("/css/application.css").toExternalForm()
+                    );
+                } catch (Exception ex) {
+                    logger.error("Failed to load fallback stylesheet", ex);
+                }
             }
         }
     }
 
     private void showAboutDialog() {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("About");
+        alert.setTitle("About OpenRewrite Code Transformer");
         alert.setHeaderText("OpenRewrite Code Transformer");
-        alert.setContentText(
-            "Version 1.0.0\n\n" +
-            "A JavaFX application for applying OpenRewrite recipes\n" +
-            "to transform source code via MCP (Model Context Protocol).\n\n" +
-            "Built with OpenRewrite, JavaFX, and MCP SDK"
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(10));
+
+        Label versionLabel = new Label("Version 1.0.0");
+        versionLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold;");
+
+        Label descLabel = new Label(
+            "A modern JavaFX application for applying OpenRewrite recipes\n" +
+            "to transform source code via MCP (Model Context Protocol)."
         );
+        descLabel.setWrapText(true);
+        descLabel.setStyle("-fx-font-size: 12px;");
+
+        Label techLabel = new Label("Built with:");
+        techLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 10 0 5 0;");
+
+        Label techListLabel = new Label(
+            "  - OpenRewrite (Code transformation engine)\n" +
+            "  - JavaFX (Modern UI framework)\n" +
+            "  - MCP SDK (Model Context Protocol)\n" +
+            "  - RichTextFX (Syntax highlighting)"
+        );
+        techListLabel.setStyle("-fx-font-size: 11px;");
+
+        content.getChildren().addAll(versionLabel, descLabel, techLabel, techListLabel);
+
+        alert.getDialogPane().setContent(content);
         alert.showAndWait();
     }
 

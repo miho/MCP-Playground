@@ -1,0 +1,521 @@
+/**
+ * OpenRewrite JavaFX Application - Dark Theme
+ * Modern, clean dark mode with excellent contrast and readability
+ */
+
+/* ============================================
+   ROOT VARIABLES - DARK THEME
+   ============================================ */
+.root {
+    /* Base colors */
+    -fx-base: #1e1e1e;
+    -fx-background: #1e1e1e;
+    -fx-control-inner-background: #2d2d2d;
+
+    /* Primary Colors */
+    -fx-primary: #3b82f6;
+    -fx-primary-dark: #2563eb;
+    -fx-secondary: #10b981;
+    -fx-secondary-dark: #059669;
+    -fx-danger: #ef4444;
+    -fx-warning: #f59e0b;
+
+    /* Background Colors */
+    -fx-background-color: #1e1e1e;
+    -fx-background-lighter: #252525;
+    -fx-background-light: #2d2d2d;
+    -fx-surface: #252526;
+
+    /* Text Colors */
+    -fx-text-primary: #e5e7eb;
+    -fx-text-secondary: #9ca3af;
+    -fx-text-muted: #6b7280;
+
+    /* Border Colors */
+    -fx-border-default: #3f3f3f;
+    -fx-border-light: #4b5563;
+
+    /* Syntax Highlighting Colors */
+    -fx-keyword-color: #569cd6;
+    -fx-string-color: #ce9178;
+    -fx-comment-color: #6a9955;
+    -fx-number-color: #b5cea8;
+    -fx-annotation-color: #9cdcfe;
+    -fx-paren-color: #ffd700;
+    -fx-brace-color: #da70d6;
+    -fx-bracket-color: #ffa500;
+}
+
+/* ============================================
+   CODE EDITOR SYNTAX HIGHLIGHTING
+   ============================================ */
+.code-editor {
+    -fx-background-color: #1e1e1e;
+    -fx-padding: 0;
+    -fx-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    -fx-font-size: 13px;
+}
+
+.code-editor .paragraph-box {
+    -fx-background-color: #1e1e1e;
+}
+
+.code-editor .lineno {
+    -fx-background-color: #252525;
+    -fx-text-fill: #6b7280;
+    -fx-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 0 8px 0 8px;
+}
+
+.code-editor .text {
+    -fx-fill: #e5e7eb;
+}
+
+.code-editor .keyword {
+    -fx-fill: #569cd6;
+    -fx-font-weight: bold;
+}
+
+.code-editor .string {
+    -fx-fill: #ce9178;
+}
+
+.code-editor .comment {
+    -fx-fill: #6a9955;
+    -fx-font-style: italic;
+}
+
+.code-editor .number {
+    -fx-fill: #b5cea8;
+}
+
+.code-editor .annotation {
+    -fx-fill: #9cdcfe;
+}
+
+.code-editor .paren {
+    -fx-fill: #ffd700;
+    -fx-font-weight: bold;
+}
+
+.code-editor .brace {
+    -fx-fill: #da70d6;
+    -fx-font-weight: bold;
+}
+
+.code-editor .bracket {
+    -fx-fill: #ffa500;
+    -fx-font-weight: bold;
+}
+
+.code-editor .semicolon {
+    -fx-fill: #e5e7eb;
+}
+
+/* Selection highlighting */
+.code-editor .selection {
+    -fx-fill: #264f78;
+}
+
+/* Caret */
+.code-editor .caret {
+    -fx-stroke: #e5e7eb;
+    -fx-stroke-width: 1px;
+}
+
+/* ============================================
+   DIFF VIEWER
+   ============================================ */
+.diff-viewer {
+    -fx-background-color: #1e1e1e;
+}
+
+.diff-header {
+    -fx-background-color: #252525;
+    -fx-text-fill: #e5e7eb;
+    -fx-font-weight: bold;
+    -fx-padding: 10px;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.diff-container {
+    -fx-background-color: #1e1e1e;
+}
+
+.diff-scroll {
+    -fx-background-color: #1e1e1e;
+}
+
+/* ============================================
+   TOOLBAR
+   ============================================ */
+.app-toolbar {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8px;
+    -fx-spacing: 8px;
+}
+
+.app-toolbar .button {
+    -fx-background-radius: 6px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 3, 0, 0, 1);
+}
+
+.app-toolbar .button:hover {
+    -fx-opacity: 0.9;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 4, 0, 0, 2);
+}
+
+.app-toolbar .button:pressed {
+    -fx-opacity: 0.8;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.25), 1, 0, 0, 0);
+}
+
+.app-toolbar .button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* ============================================
+   STATUS BAR
+   ============================================ */
+.status-bar {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 6px 10px;
+}
+
+.status-bar .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+.status-bar .progress-bar {
+    -fx-accent: #3b82f6;
+}
+
+/* ============================================
+   RECIPE DETAILS PANE
+   ============================================ */
+.recipe-details-pane {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 1;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 10px;
+}
+
+.recipe-details-pane .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+.recipe-details-pane .text-area {
+    -fx-background-color: #1e1e1e;
+    -fx-text-fill: #e5e7eb;
+    -fx-border-color: #3f3f3f;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.recipe-details-pane .text-area .content {
+    -fx-background-color: #1e1e1e;
+}
+
+/* ============================================
+   SEARCH FIELD
+   ============================================ */
+.search-field {
+    -fx-background-color: #2d2d2d;
+    -fx-text-fill: #e5e7eb;
+    -fx-prompt-text-fill: #6b7280;
+    -fx-font-size: 13px;
+    -fx-border-color: #3f3f3f;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 8px 12px;
+}
+
+.search-field:focused {
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 2px;
+    -fx-background-color: #252525;
+}
+
+/* ============================================
+   LIST VIEW
+   ============================================ */
+.list-view {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 1;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e5e7eb;
+    -fx-padding: 8px;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.list-view .list-cell:hover {
+    -fx-background-color: #2d2d2d;
+}
+
+.list-view .list-cell:selected {
+    -fx-background-color: #3b82f6;
+    -fx-text-fill: white;
+}
+
+.list-view .list-cell:selected:hover {
+    -fx-background-color: #2563eb;
+}
+
+.list-view .list-cell:empty {
+    -fx-background-color: transparent;
+}
+
+/* ============================================
+   SCROLL PANE
+   ============================================ */
+.scroll-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: #1e1e1e;
+}
+
+.scroll-pane .scroll-bar:vertical,
+.scroll-pane .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar .thumb {
+    -fx-background-color: #4b5563;
+    -fx-background-radius: 4px;
+}
+
+.scroll-pane .scroll-bar .thumb:hover {
+    -fx-background-color: #6b7280;
+}
+
+.scroll-pane .scroll-bar .track {
+    -fx-background-color: #2d2d2d;
+}
+
+/* ============================================
+   SPLIT PANE
+   ============================================ */
+.split-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.split-pane .split-pane-divider {
+    -fx-background-color: #3f3f3f;
+    -fx-padding: 0 1 0 1;
+}
+
+.split-pane:vertical .split-pane-divider {
+    -fx-padding: 1 0 1 0;
+}
+
+/* ============================================
+   TAB PANE
+   ============================================ */
+.tab-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.tab-pane .tab-header-area {
+    -fx-background-color: #252525;
+}
+
+.tab-pane .tab {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 8px 16px;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 0 0 2 0;
+}
+
+.tab-pane .tab .tab-label {
+    -fx-text-fill: #9ca3af;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: #e5e7eb;
+    -fx-font-weight: bold;
+}
+
+.tab-pane .tab-content-area {
+    -fx-background-color: #1e1e1e;
+}
+
+/* ============================================
+   MENU BAR
+   ============================================ */
+.menu-bar {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu-bar .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+.menu-bar .menu-item {
+    -fx-background-color: #252525;
+}
+
+.menu-bar .menu-item:focused,
+.menu-bar .menu-item:hover {
+    -fx-background-color: #2d2d2d;
+}
+
+.menu-bar .menu:showing {
+    -fx-background-color: #2d2d2d;
+}
+
+.context-menu {
+    -fx-background-color: #252525;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 1;
+}
+
+.menu-item .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+.menu-item:focused .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+/* ============================================
+   SEPARATORS
+   ============================================ */
+.separator {
+    -fx-background-color: #3f3f3f;
+}
+
+.separator .line {
+    -fx-border-color: #3f3f3f;
+}
+
+/* ============================================
+   TOOLTIPS
+   ============================================ */
+.tooltip {
+    -fx-background-color: #374151;
+    -fx-text-fill: #e5e7eb;
+    -fx-border-color: #4b5563;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-font-size: 12px;
+    -fx-padding: 6px 10px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 4, 0, 0, 2);
+}
+
+/* ============================================
+   LABELS
+   ============================================ */
+.label {
+    -fx-text-fill: #e5e7eb;
+}
+
+.label:disabled {
+    -fx-opacity: 0.5;
+}
+
+/* ============================================
+   TEXT FIELDS
+   ============================================ */
+.text-field {
+    -fx-background-color: #2d2d2d;
+    -fx-text-fill: #e5e7eb;
+    -fx-border-color: #3f3f3f;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 6px 8px;
+}
+
+.text-field:focused {
+    -fx-border-color: #3b82f6;
+    -fx-border-width: 2;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.button {
+    -fx-background-color: #2d2d2d;
+    -fx-text-fill: #e5e7eb;
+    -fx-border-color: #4b5563;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #374151;
+}
+
+.button:pressed {
+    -fx-background-color: #1f2937;
+}
+
+.button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* ============================================
+   DIALOGS
+   ============================================ */
+.dialog-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.dialog-pane .content {
+    -fx-background-color: #1e1e1e;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: #252525;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: #e5e7eb;
+}
+
+/* ============================================
+   ALERTS
+   ============================================ */
+.alert {
+    -fx-background-color: #1e1e1e;
+}
+
+.alert .header-panel {
+    -fx-background-color: #252525;
+}
+
+.alert .content {
+    -fx-background-color: #1e1e1e;
+}

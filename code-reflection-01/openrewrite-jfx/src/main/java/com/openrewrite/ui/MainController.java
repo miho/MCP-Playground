@@ -35,9 +35,11 @@ public class MainController {
     private final DiffViewer diffViewer;
     private final ListView<Recipe> recipeListView;
     private final RecipeDetailsPane recipeDetailsPane;
+    private final TextField recipeSearchField;
 
     // Data
     private final ObservableList<Recipe> recipes;
+    private final ObservableList<Recipe> filteredRecipes;
     private McpClient mcpClient;
 
     // Embedded server components
@@ -72,14 +74,20 @@ public class MainController {
         this.transformedCodeEditor.setEditable(false);
         this.diffViewer = new DiffViewer();
         this.recipes = FXCollections.observableArrayList();
-        this.recipeListView = new ListView<>(recipes);
+        this.filteredRecipes = FXCollections.observableArrayList();
+        this.recipeListView = new ListView<>(filteredRecipes);
         this.recipeDetailsPane = new RecipeDetailsPane();
+        this.recipeSearchField = new TextField();
 
         setupUI();
         setupEventHandlers();
     }
 
     private void setupUI() {
+        // Configure recipe search field
+        recipeSearchField.setPromptText("Search recipes by name or description...");
+        recipeSearchField.getStyleClass().add("search-field");
+
         // Configure recipe list view
         recipeListView.setCellFactory(lv -> new ListCell<Recipe>() {
             @Override
@@ -89,7 +97,7 @@ public class MainController {
                     setText(null);
                     setTooltip(null);
                 } else {
-                    setText(recipe.getName());
+                    setText(recipe.getDisplayName());
                     if (recipe.getDescription() != null && !recipe.getDescription().isEmpty()) {
                         setTooltip(new Tooltip(recipe.getDescription()));
                     }
@@ -116,6 +124,68 @@ public class MainController {
                 }
             }
         );
+
+        // Recipe search/filter handler
+        recipeSearchField.textProperty().addListener((obs, oldText, newText) -> {
+            filterRecipes(newText);
+        });
+    }
+
+    /**
+     * Filter recipes based on search text.
+     */
+    private void filterRecipes(String searchText) {
+        filteredRecipes.clear();
+
+        if (searchText == null || searchText.trim().isEmpty()) {
+            // Show all recipes when search is empty
+            filteredRecipes.addAll(recipes);
+        } else {
+            String lowerCaseSearch = searchText.toLowerCase().trim();
+
+            // Filter recipes by name, displayName, description, or tags
+            for (Recipe recipe : recipes) {
+                boolean matches = false;
+
+                // Check name
+                if (recipe.getName() != null && recipe.getName().toLowerCase().contains(lowerCaseSearch)) {
+                    matches = true;
+                }
+
+                // Check display name
+                if (!matches && recipe.getDisplayName() != null &&
+                    recipe.getDisplayName().toLowerCase().contains(lowerCaseSearch)) {
+                    matches = true;
+                }
+
+                // Check description
+                if (!matches && recipe.getDescription() != null &&
+                    recipe.getDescription().toLowerCase().contains(lowerCaseSearch)) {
+                    matches = true;
+                }
+
+                // Check tags
+                if (!matches && recipe.getTags() != null) {
+                    for (String tag : recipe.getTags()) {
+                        if (tag.toLowerCase().contains(lowerCaseSearch)) {
+                            matches = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (matches) {
+                    filteredRecipes.add(recipe);
+                }
+            }
+        }
+
+        // Update status bar with filter info
+        if (searchText != null && !searchText.trim().isEmpty()) {
+            statusBar.setRecipeCount(filteredRecipes.size() + " of " + recipes.size());
+        } else {
+            statusBar.setRecipeCount(recipes.size());
+        }
     }
 
     /**
@@ -252,9 +322,12 @@ public class MainController {
             Platform.runLater(() -> {
                 recipes.clear();
                 recipes.addAll(recipeList);
+                filteredRecipes.clear();
+                filteredRecipes.addAll(recipeList);
                 statusBar.setRecipeCount(recipeList.size());
                 statusBar.setStatus("Loaded " + recipeList.size() + " recipes");
                 statusBar.hideProgress();
+                recipeSearchField.clear();
             });
         }).exceptionally(ex -> {
             Platform.runLater(() -> {
@@ -505,4 +578,5 @@ public class MainController {
     public DiffViewer getDiffViewer() { return diffViewer; }
     public ListView<Recipe> getRecipeListView() { return recipeListView; }
     public RecipeDetailsPane getRecipeDetailsPane() { return recipeDetailsPane; }
+    public TextField getRecipeSearchField() { return recipeSearchField; }
 }

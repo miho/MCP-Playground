@@ -28,6 +28,7 @@ public class McpClient {
     private final ObjectMapper objectMapper;
     private final ExecutorService executorService;
     private boolean connected;
+    private int requestIdCounter = 1;
 
     public McpClient(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -42,8 +43,10 @@ public class McpClient {
      */
     public void connect() {
         try {
-            // Test connection by attempting to list recipes
+            // Test connection by attempting to list available tools
             Map<String, Object> request = new HashMap<>();
+            request.put("jsonrpc", "2.0");
+            request.put("id", requestIdCounter++);
             request.put("method", "tools/list");
             request.put("params", Collections.emptyMap());
 
@@ -51,11 +54,11 @@ public class McpClient {
             JsonNode root = objectMapper.readTree(response);
 
             // Check if response has expected structure
-            if (root.has("result")) {
+            if (root.has("result") && root.path("result").has("tools")) {
                 connected = true;
                 logger.info("Connected to MCP server at {}", serverUrl);
             } else {
-                logger.warn("MCP server response missing 'result' field");
+                logger.warn("MCP server response missing expected structure");
                 connected = false;
             }
         } catch (Exception e) {
@@ -87,23 +90,38 @@ public class McpClient {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Map<String, Object> request = new HashMap<>();
-                request.put("method", "tools/list");
-                request.put("params", Collections.emptyMap());
+                request.put("jsonrpc", "2.0");
+                request.put("id", requestIdCounter++);
+                request.put("method", "tools/call");
+                request.put("params", Map.of(
+                    "name", "list_recipes",
+                    "arguments", Collections.emptyMap()
+                ));
 
                 String response = sendRequest("", request);
                 JsonNode root = objectMapper.readTree(response);
-                JsonNode recipesNode = root.path("result").path("recipes");
 
-                List<Recipe> recipes = new ArrayList<>();
-                if (recipesNode.isArray()) {
-                    for (JsonNode recipeNode : recipesNode) {
-                        Recipe recipe = parseRecipe(recipeNode);
-                        recipes.add(recipe);
+                // Parse the content from the result
+                JsonNode contentArray = root.path("result").path("content");
+                if (contentArray.isArray() && contentArray.size() > 0) {
+                    String jsonContent = contentArray.get(0).path("text").asText();
+                    JsonNode recipeData = objectMapper.readTree(jsonContent);
+                    JsonNode recipesNode = recipeData.path("recipes");
+
+                    List<Recipe> recipes = new ArrayList<>();
+                    if (recipesNode.isArray()) {
+                        for (JsonNode recipeNode : recipesNode) {
+                            Recipe recipe = parseRecipe(recipeNode);
+                            recipes.add(recipe);
+                        }
                     }
-                }
 
-                logger.info("Loaded {} recipes from server", recipes.size());
-                return recipes;
+                    logger.info("Loaded {} recipes from server", recipes.size());
+                    return recipes;
+                } else {
+                    logger.warn("No content in MCP response or unexpected format");
+                    return new ArrayList<>();
+                }
             } catch (Exception e) {
                 logger.error("Failed to list recipes", e);
                 throw new RuntimeException("Failed to list recipes: " + e.getMessage(), e);
@@ -123,6 +141,8 @@ public class McpClient {
                 params.put("language", language);
 
                 Map<String, Object> request = new HashMap<>();
+                request.put("jsonrpc", "2.0");
+                request.put("id", requestIdCounter++);
                 request.put("method", "tools/call");
                 request.put("params", Map.of(
                     "name", "apply_recipe",
@@ -131,9 +151,17 @@ public class McpClient {
 
                 String response = sendRequest("", request);
                 JsonNode root = objectMapper.readTree(response);
-                JsonNode resultNode = root.path("result");
 
-                TransformationResult result = parseTransformationResult(resultNode, sourceCode, recipeName);
+                // Parse the content from the result
+                JsonNode contentArray = root.path("result").path("content");
+                TransformationResult result;
+                if (contentArray.isArray() && contentArray.size() > 0) {
+                    String jsonContent = contentArray.get(0).path("text").asText();
+                    JsonNode transformData = objectMapper.readTree(jsonContent);
+                    result = parseTransformationResult(transformData, sourceCode, recipeName);
+                } else {
+                    throw new RuntimeException("No content in MCP response");
+                }
                 logger.info("Applied recipe {} - hasChanges: {}", recipeName, result.hasChanges());
                 return result;
             } catch (Exception e) {
@@ -160,6 +188,8 @@ public class McpClient {
                 params.put("language", language);
 
                 Map<String, Object> request = new HashMap<>();
+                request.put("jsonrpc", "2.0");
+                request.put("id", requestIdCounter++);
                 request.put("method", "tools/call");
                 request.put("params", Map.of(
                     "name", "analyze_code",
@@ -168,10 +198,18 @@ public class McpClient {
 
                 String response = sendRequest("", request);
                 JsonNode root = objectMapper.readTree(response);
-                JsonNode suggestionsNode = root.path("result").path("suggestions");
+
+                // Parse the content from the result
+                JsonNode contentArray = root.path("result").path("content");
+                JsonNode suggestionsNode = null;
+                if (contentArray.isArray() && contentArray.size() > 0) {
+                    String jsonContent = contentArray.get(0).path("text").asText();
+                    JsonNode analysisData = objectMapper.readTree(jsonContent);
+                    suggestionsNode = analysisData.path("suggestions");
+                }
 
                 List<Recipe> suggestions = new ArrayList<>();
-                if (suggestionsNode.isArray()) {
+                if (suggestionsNode != null && suggestionsNode.isArray()) {
                     for (JsonNode suggestionNode : suggestionsNode) {
                         Recipe recipe = new Recipe();
                         recipe.setName(suggestionNode.path("recipeName").asText());
@@ -200,6 +238,8 @@ public class McpClient {
                 params.put("recipeName", recipeName);
 
                 Map<String, Object> request = new HashMap<>();
+                request.put("jsonrpc", "2.0");
+                request.put("id", requestIdCounter++);
                 request.put("method", "tools/call");
                 request.put("params", Map.of(
                     "name", "get_recipe_description",
@@ -208,9 +248,16 @@ public class McpClient {
 
                 String response = sendRequest("", request);
                 JsonNode root = objectMapper.readTree(response);
-                JsonNode resultNode = root.path("result");
 
-                return parseRecipe(resultNode);
+                // Parse the content from the result
+                JsonNode contentArray = root.path("result").path("content");
+                if (contentArray.isArray() && contentArray.size() > 0) {
+                    String jsonContent = contentArray.get(0).path("text").asText();
+                    JsonNode recipeData = objectMapper.readTree(jsonContent);
+                    return parseRecipe(recipeData);
+                } else {
+                    throw new RuntimeException("No content in MCP response");
+                }
             } catch (Exception e) {
                 logger.error("Failed to get recipe details", e);
                 throw new RuntimeException("Failed to get recipe details: " + e.getMessage(), e);
