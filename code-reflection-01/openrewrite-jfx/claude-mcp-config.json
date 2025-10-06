@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "openrewrite": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "C:/Dev/repos/MCP-Playground/code-reflection-01/openrewrite-jfx/build/libs/openrewrite-mcp-server.jar"
+      ],
+      "env": {},
+      "description": "OpenRewrite MCP Server - Automated code refactoring and static analysis"
+    }
+  }
+}

@@ -1,0 +1,528 @@
+/*
+ * OpenRewrite JavaFX Application Stylesheet
+ * Modern, clean design with dark and light theme support
+ */
+
+/* ============================================
+   ROOT VARIABLES - DARK THEME (DEFAULT)
+   ============================================ */
+.root.dark-theme {
+    /* Primary Colors */
+    -fx-primary: #3498db;
+    -fx-primary-dark: #2980b9;
+    -fx-secondary: #27ae60;
+    -fx-secondary-dark: #229954;
+    -fx-danger: #e74c3c;
+    -fx-warning: #f39c12;
+
+    /* Background Colors */
+    -fx-background: #1e1e1e;
+    -fx-background-lighter: #2d2d30;
+    -fx-background-light: #3e3e42;
+    -fx-surface: #252526;
+
+    /* Text Colors */
+    -fx-text-primary: #d4d4d4;
+    -fx-text-secondary: #9d9d9d;
+    -fx-text-muted: #6e6e6e;
+
+    /* Border Colors */
+    -fx-border-default: #3e3e42;
+    -fx-border-light: #555555;
+
+    /* Syntax Highlighting Colors */
+    -fx-keyword-color: #569cd6;
+    -fx-string-color: #ce9178;
+    -fx-comment-color: #6a9955;
+    -fx-number-color: #b5cea8;
+    -fx-annotation-color: #9cdcfe;
+    -fx-paren-color: #ffd700;
+    -fx-brace-color: #da70d6;
+    -fx-bracket-color: #ffa500;
+}
+
+/* ============================================
+   ROOT VARIABLES - LIGHT THEME
+   ============================================ */
+.root.light-theme {
+    /* Primary Colors */
+    -fx-primary: #0066cc;
+    -fx-primary-dark: #004499;
+    -fx-secondary: #28a745;
+    -fx-secondary-dark: #218838;
+    -fx-danger: #dc3545;
+    -fx-warning: #ffc107;
+
+    /* Background Colors */
+    -fx-background: #ffffff;
+    -fx-background-lighter: #f8f9fa;
+    -fx-background-light: #e9ecef;
+    -fx-surface: #ffffff;
+
+    /* Text Colors */
+    -fx-text-primary: #212529;
+    -fx-text-secondary: #6c757d;
+    -fx-text-muted: #adb5bd;
+
+    /* Border Colors */
+    -fx-border-default: #dee2e6;
+    -fx-border-light: #ced4da;
+
+    /* Syntax Highlighting Colors */
+    -fx-keyword-color: #0000ff;
+    -fx-string-color: #a31515;
+    -fx-comment-color: #008000;
+    -fx-number-color: #098658;
+    -fx-annotation-color: #0066cc;
+    -fx-paren-color: #b8860b;
+    -fx-brace-color: #9932cc;
+    -fx-bracket-color: #ff8c00;
+}
+
+/* ============================================
+   GENERAL STYLES
+   ============================================ */
+.root {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: -fx-background;
+}
+
+/* ============================================
+   CODE EDITOR SYNTAX HIGHLIGHTING
+   ============================================ */
+.code-editor {
+    -fx-background-color: -fx-surface;
+    -fx-padding: 0;
+}
+
+.code-editor .paragraph-box {
+    -fx-background-color: -fx-surface;
+}
+
+.code-editor .lineno {
+    -fx-background-color: -fx-background-lighter;
+    -fx-text-fill: -fx-text-muted;
+    -fx-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 0 8px 0 8px;
+}
+
+.code-editor .text {
+    -fx-fill: -fx-text-primary;
+}
+
+.code-editor .keyword {
+    -fx-fill: -fx-keyword-color;
+    -fx-font-weight: bold;
+}
+
+.code-editor .string {
+    -fx-fill: -fx-string-color;
+}
+
+.code-editor .comment {
+    -fx-fill: -fx-comment-color;
+    -fx-font-style: italic;
+}
+
+.code-editor .number {
+    -fx-fill: -fx-number-color;
+}
+
+.code-editor .annotation {
+    -fx-fill: -fx-annotation-color;
+}
+
+.code-editor .paren {
+    -fx-fill: -fx-paren-color;
+    -fx-font-weight: bold;
+}
+
+.code-editor .brace {
+    -fx-fill: -fx-brace-color;
+    -fx-font-weight: bold;
+}
+
+.code-editor .bracket {
+    -fx-fill: -fx-bracket-color;
+    -fx-font-weight: bold;
+}
+
+.code-editor .semicolon {
+    -fx-fill: -fx-text-primary;
+}
+
+/* Selection highlighting */
+.code-editor .selection {
+    -fx-fill: #264f78;
+}
+
+/* Caret */
+.code-editor .caret {
+    -fx-stroke: -fx-text-primary;
+    -fx-stroke-width: 1px;
+}
+
+/* ============================================
+   DIFF VIEWER
+   ============================================ */
+.diff-viewer {
+    -fx-background-color: -fx-background;
+}
+
+.diff-header {
+    -fx-background-color: -fx-background-lighter;
+    -fx-text-fill: -fx-text-primary;
+    -fx-font-weight: bold;
+    -fx-padding: 10px;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 0 0 1 0;
+}
+
+.diff-container {
+    -fx-background-color: -fx-surface;
+}
+
+.diff-scroll {
+    -fx-background-color: -fx-surface;
+}
+
+/* ============================================
+   TOOLBAR
+   ============================================ */
+.app-toolbar {
+    -fx-background-color: -fx-background-lighter;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8px;
+    -fx-spacing: 8px;
+}
+
+.app-toolbar .button {
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 2, 0, 0, 1);
+}
+
+.app-toolbar .button:hover {
+    -fx-opacity: 0.9;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 3, 0, 0, 2);
+}
+
+.app-toolbar .button:pressed {
+    -fx-opacity: 0.8;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 1, 0, 0, 0);
+}
+
+.app-toolbar .button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* ============================================
+   STATUS BAR
+   ============================================ */
+.status-bar {
+    -fx-background-color: #2c3e50;
+    -fx-border-color: #34495e;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 6px 10px;
+}
+
+.status-bar .label {
+    -fx-text-fill: #ecf0f1;
+}
+
+.status-bar .progress-bar {
+    -fx-accent: #3498db;
+}
+
+/* ============================================
+   RECIPE DETAILS PANE
+   ============================================ */
+.recipe-details-pane {
+    -fx-background-color: -fx-background-lighter;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 1;
+    -fx-border-radius: 4px;
+    -fx-padding: 10px;
+}
+
+.recipe-details-pane .label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+.recipe-details-pane .text-area {
+    -fx-background-color: -fx-surface;
+    -fx-text-fill: -fx-text-primary;
+    -fx-border-color: -fx-border-default;
+    -fx-border-radius: 3px;
+}
+
+.recipe-details-pane .text-area .content {
+    -fx-background-color: -fx-surface;
+}
+
+/* ============================================
+   LIST VIEW
+   ============================================ */
+.list-view {
+    -fx-background-color: -fx-surface;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 1;
+}
+
+.list-view .list-cell {
+    -fx-background-color: -fx-surface;
+    -fx-text-fill: -fx-text-primary;
+    -fx-padding: 8px;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 0 0 1 0;
+}
+
+.list-view .list-cell:hover {
+    -fx-background-color: -fx-background-light;
+}
+
+.list-view .list-cell:selected {
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+}
+
+.list-view .list-cell:empty {
+    -fx-background-color: transparent;
+}
+
+/* ============================================
+   SCROLL PANE
+   ============================================ */
+.scroll-pane {
+    -fx-background-color: -fx-background;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: -fx-background;
+}
+
+.scroll-pane .scroll-bar:vertical,
+.scroll-pane .scroll-bar:horizontal {
+    -fx-background-color: -fx-background-lighter;
+}
+
+.scroll-pane .scroll-bar .thumb {
+    -fx-background-color: -fx-border-light;
+    -fx-background-radius: 4px;
+}
+
+.scroll-pane .scroll-bar .thumb:hover {
+    -fx-background-color: -fx-text-muted;
+}
+
+/* ============================================
+   SPLIT PANE
+   ============================================ */
+.split-pane {
+    -fx-background-color: -fx-background;
+}
+
+.split-pane .split-pane-divider {
+    -fx-background-color: -fx-border-default;
+    -fx-padding: 0 1 0 1;
+}
+
+.split-pane:vertical .split-pane-divider {
+    -fx-padding: 1 0 1 0;
+}
+
+/* ============================================
+   TAB PANE
+   ============================================ */
+.tab-pane {
+    -fx-background-color: -fx-background;
+}
+
+.tab-pane .tab-header-area {
+    -fx-background-color: -fx-background-lighter;
+}
+
+.tab-pane .tab {
+    -fx-background-color: -fx-background-lighter;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 0 1 0 0;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: -fx-surface;
+    -fx-border-color: -fx-primary;
+    -fx-border-width: 0 0 2 0;
+}
+
+.tab-pane .tab .tab-label {
+    -fx-text-fill: -fx-text-secondary;
+}
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: -fx-text-primary;
+    -fx-font-weight: bold;
+}
+
+.tab-pane .tab-content-area {
+    -fx-background-color: -fx-surface;
+}
+
+/* ============================================
+   MENU BAR
+   ============================================ */
+.menu-bar {
+    -fx-background-color: -fx-background-lighter;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu-bar .label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+.menu-bar .menu-item {
+    -fx-background-color: -fx-background-lighter;
+}
+
+.menu-bar .menu-item:focused,
+.menu-bar .menu-item:hover {
+    -fx-background-color: -fx-background-light;
+}
+
+.menu-bar .menu:showing {
+    -fx-background-color: -fx-background-light;
+}
+
+.context-menu {
+    -fx-background-color: -fx-background-lighter;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 1;
+}
+
+.menu-item .label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+.menu-item:focused .label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+/* ============================================
+   SEPARATORS
+   ============================================ */
+.separator {
+    -fx-background-color: -fx-border-default;
+}
+
+.separator .line {
+    -fx-border-color: -fx-border-default;
+}
+
+/* ============================================
+   TOOLTIPS
+   ============================================ */
+.tooltip {
+    -fx-background-color: derive(-fx-background-lighter, 10%);
+    -fx-text-fill: -fx-text-primary;
+    -fx-border-color: -fx-border-light;
+    -fx-border-width: 1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-font-size: 12px;
+    -fx-padding: 6px 8px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 4, 0, 0, 2);
+}
+
+/* ============================================
+   LABELS
+   ============================================ */
+.label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+.label:disabled {
+    -fx-opacity: 0.5;
+}
+
+/* ============================================
+   TEXT FIELDS
+   ============================================ */
+.text-field {
+    -fx-background-color: -fx-surface;
+    -fx-text-fill: -fx-text-primary;
+    -fx-border-color: -fx-border-default;
+    -fx-border-width: 1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-padding: 6px 8px;
+}
+
+.text-field:focused {
+    -fx-border-color: -fx-primary;
+    -fx-border-width: 2;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.button {
+    -fx-background-color: -fx-background-light;
+    -fx-text-fill: -fx-text-primary;
+    -fx-border-color: -fx-border-light;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 6px 12px;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: derive(-fx-background-light, 10%);
+}
+
+.button:pressed {
+    -fx-background-color: derive(-fx-background-light, -10%);
+}
+
+.button:disabled {
+    -fx-opacity: 0.5;
+    -fx-cursor: default;
+}
+
+/* ============================================
+   DIALOGS
+   ============================================ */
+.dialog-pane {
+    -fx-background-color: -fx-background;
+}
+
+.dialog-pane .content {
+    -fx-background-color: -fx-background;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: -fx-background-lighter;
+}
+
+.dialog-pane .label {
+    -fx-text-fill: -fx-text-primary;
+}
+
+/* ============================================
+   ALERTS
+   ============================================ */
+.alert {
+    -fx-background-color: -fx-background;
+}
+
+.alert .header-panel {
+    -fx-background-color: -fx-background-lighter;
+}
+
+.alert .content {
+    -fx-background-color: -fx-background;
+}

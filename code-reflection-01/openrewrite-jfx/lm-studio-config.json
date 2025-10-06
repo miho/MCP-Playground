@@ -1,0 +1,80 @@
+{
+  "name": "OpenRewrite MCP Server",
+  "description": "Automated code refactoring and static analysis server",
+  "endpoint": "http://localhost:3001/mcp",
+  "transport": "http",
+  "tools": [
+    {
+      "name": "listRecipes",
+      "description": "List all available refactoring recipes",
+      "parameters": {}
+    },
+    {
+      "name": "getRecipeDescription",
+      "description": "Get detailed description of a recipe",
+      "parameters": {
+        "recipeName": {
+          "type": "string",
+          "description": "Name of the recipe to describe",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "applyRecipe",
+      "description": "Apply a refactoring recipe to source code",
+      "parameters": {
+        "recipeName": {
+          "type": "string",
+          "description": "Name of the recipe to apply",
+          "required": true
+        },
+        "sourceCode": {
+          "type": "string",
+          "description": "Source code to transform",
+          "required": true
+        },
+        "language": {
+          "type": "string",
+          "description": "Programming language (java, kotlin, groovy, xml, yaml, properties, json)",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "analyzeCode",
+      "description": "Analyze code and suggest applicable recipes",
+      "parameters": {
+        "sourceCode": {
+          "type": "string",
+          "description": "Source code to analyze",
+          "required": true
+        },
+        "language": {
+          "type": "string",
+          "description": "Programming language",
+          "required": false
+        },
+        "analysisType": {
+          "type": "string",
+          "description": "Type of analysis to perform",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "createCustomRecipe",
+      "description": "Create a custom refactoring recipe from YAML",
+      "parameters": {
+        "recipeYaml": {
+          "type": "string",
+          "description": "YAML definition of the custom recipe",
+          "required": true
+        }
+      }
+    }
+  ],
+  "startup": {
+    "command": "java -jar C:/Dev/repos/MCP-Playground/code-reflection-01/openrewrite-jfx/build/libs/openrewrite-mcp-server.jar --http 3001"
+  }
+}
