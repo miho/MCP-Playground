@@ -354,6 +354,8 @@ final class ToolFactory {
                             summary.put("execution", stored.get("execution"));
                             summary.put("defines", stored.get("defines"));
                             summary.put("instrumented_points", stored.get("instrumented_points"));
+                            summary.put("original_code", stored.get("original_code"));
+                            summary.put("instrumented_code", stored.get("instrumented_code"));
                             response.put("summary", summary);
                         }
 
@@ -632,6 +634,7 @@ final class ToolFactory {
 
                 RunResultPersister.RunRecord record = RESULT_PERSISTER.persist(
                         code,
+                        program.getSourceCode(),
                         runResult,
                         summary,
                         cacheConfiguration,
@@ -804,6 +807,7 @@ final class ToolFactory {
 
                     RunResultPersister.RunRecord record = RESULT_PERSISTER.persist(
                             code,
+                            program.getSourceCode(),
                             result,
                             summary,
                             cacheConfiguration,

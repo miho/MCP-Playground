@@ -1,63 +1,234 @@
+/* ===================================================================
+   Light Theme for Cache Analysis Application
+   Clean, bright design with excellent readability
+   =================================================================== */
+
 .root {
-    -fx-base: #f3f3f3;
-    -fx-background-color: #f3f3f3;
-    -fx-text-fill: #1e1e1e;
+    -fx-base: #f8fafc;
+    -fx-background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    -fx-background-color: #f8fafc;
+    -fx-text-fill: #0f172a;
+    -fx-text-base-color: #0f172a;
+    -fx-border-base: #cbd5e1;
 }
 
 .label, .text {
-    -fx-text-fill: #1e1e1e;
+    -fx-text-fill: #0f172a;
 }
 
-.primary-button {
-    -fx-background-color: #0b62d6;
-    -fx-border-color: transparent;
-}
-
-.secondary-button {
-    -fx-text-fill: #1e1e1e;
-    -fx-border-color: #b0b0b0;
-}
-
-.table-view, .list-view, .combo-box, .spinner {
-    -fx-background-color: white;
-    -fx-control-inner-background: white;
-    -fx-text-fill: #1e1e1e;
-}
-
-.code-area {
-    -fx-background-color: white;
-    -fx-text-fill: #1e1e1e;
+/* Enhanced Code Area Light Theme */
+.code-area-light {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #1e293b;
 }
 
 .virtualized-scroll-pane {
-    -fx-background-color: white;
+    -fx-background-color: #ffffff;
 }
 
+.line-number-container {
+    -fx-background-color: rgba(248, 250, 252, 0.9);
+    -fx-border-color: transparent transparent transparent rgba(203, 213, 225, 0.5);
+}
+
+/* Enhanced Code Syntax Light Theme */
+.code-area .keyword {
+    -fx-fill: #1d4ed8;
+}
+
+.code-area .type {
+    -fx-fill: #7c3aed;
+}
+
+.code-area .preprocessor {
+    -fx-fill: #d97706;
+}
+
+.code-area .number {
+    -fx-fill: #059669;
+}
+
+.code-area .string,
+.code-area .char {
+    -fx-fill: #dc2626;
+}
+
+.code-area .comment {
+    -fx-fill: #64748b;
+    -fx-font-style: italic;
+}
+
+/* Tables and Lists Light */
+.table-view, .list-view, .combo-box, .spinner {
+    -fx-background-color: #ffffff;
+    -fx-control-inner-background: #ffffff;
+    -fx-text-fill: #0f172a;
+    -fx-border-color: #e2e8f0;
+}
+
+.table-view .column-header {
+    -fx-background-color: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+    -fx-text-fill: #475569;
+}
+
+.table-row-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #0f172a;
+}
+
+.table-row-cell:odd {
+    -fx-background-color: rgba(241, 245, 249, 0.5);
+}
+
+.table-row-cell:selected {
+    -fx-background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Server Control Bar */
 .server-control-bar {
-    -fx-background-color: #e9e9e9;
-    -fx-border-base: #cccccc;
+    -fx-background-color: #f1f5f9;
+    -fx-border-base: #cbd5e1;
 }
 
+/* Metric Cards Light */
+.metric-card {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #fefefe);
+    -fx-border-color: rgba(203, 213, 225, 0.6);
+}
+
+.metric-card:hover {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fafc);
+}
+
+/* Gauge Light */
+.gauge-background {
+    -fx-stroke: rgba(203, 213, 225, 0.5);
+}
+
+/* Charts Light */
+.chart {
+    -fx-background-color: transparent;
+}
+
+.chart-plot-background {
+    -fx-background-color: rgba(248, 250, 252, 0.8);
+}
+
+.axis {
+    -fx-tick-label-fill: #64748b;
+}
+
+.chart-legend {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-text-fill: #0f172a;
+}
+
+/* Panel Headers Light */
+.panel-header {
+    -fx-background-color: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    -fx-border-color: transparent transparent rgba(203, 213, 225, 0.6) transparent;
+}
+
+.panel-header:hover {
+    -fx-background-color: linear-gradient(to bottom, #f1f5f9, #e2e8f0);
+}
+
+/* Buttons Light */
+.primary-button {
+    -fx-background-color: linear-gradient(to bottom, #3b82f6, #2563eb);
+}
+
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to bottom, #2563eb, #1d4ed8);
+}
+
+.secondary-button {
+    -fx-text-fill: #475569;
+    -fx-border-color: rgba(148, 163, 184, 0.6);
+}
+
+.secondary-button:hover {
+    -fx-background-color: rgba(241, 245, 249, 0.8);
+}
+
+/* Tab Pane Light */
+.tab {
+    -fx-background-color: rgba(241, 245, 249, 0.7);
+    -fx-text-fill: #64748b;
+}
+
+.tab:selected {
+    -fx-background-color: linear-gradient(to bottom, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+    -fx-text-fill: #0f172a;
+    -fx-border-color: transparent transparent #3b82f6 transparent;
+}
+
+.tab:hover {
+    -fx-background-color: rgba(226, 232, 240, 0.8);
+}
+
+/* Scroll Bars Light */
+.scroll-bar .thumb {
+    -fx-background-color: rgba(148, 163, 184, 0.5);
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(100, 116, 139, 0.7);
+}
+
+.scroll-bar .track {
+    -fx-background-color: rgba(241, 245, 249, 0.5);
+}
+
+/* Status Label Light */
 .status-label {
-    -fx-text-fill: #0e639c;
+    -fx-text-fill: #1e40af;
+    -fx-background-color: rgba(59, 130, 246, 0.1);
+    -fx-border-color: rgba(59, 130, 246, 0.3);
 }
 
+/* Text Fields Light */
+.text-field, .text-area {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #0f172a;
+    -fx-border-color: #cbd5e1;
+    -fx-prompt-text-fill: #94a3b8;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-border-color: #3b82f6;
+}
+
+/* Tooltips Light */
+.tooltip {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fafc);
+    -fx-text-fill: #0f172a;
+    -fx-border-color: rgba(203, 213, 225, 0.8);
+}
+
+/* Best Row Light */
 .table-row-cell.best-row {
-    -fx-background-color: rgba(102, 255, 102, 0.35);
+    -fx-background-color: rgba(34, 197, 94, 0.15);
+    -fx-border-color: transparent transparent rgba(34, 197, 94, 0.3) transparent;
 }
 
+/* Miss Lines Light */
 .miss-line {
-    -fx-background-color: rgba(255, 102, 102, 0.35);
+    -fx-background-color: linear-gradient(to right, rgba(239, 68, 68, 0.2), transparent);
 }
 
+/* Hotspots Light - Enhanced gradients */
 .hotspot-low {
-    -fx-background-color: rgba(255, 191, 0, 0.35);
+    -fx-background-color: linear-gradient(to right, rgba(250, 204, 21, 0.25), transparent);
+    -fx-border-color: transparent transparent transparent #eab308;
 }
 
 .hotspot-medium {
-    -fx-background-color: rgba(255, 99, 71, 0.45);
+    -fx-background-color: linear-gradient(to right, rgba(251, 146, 60, 0.3), transparent);
+    -fx-border-color: transparent transparent transparent #f97316;
 }
 
 .hotspot-high {
-    -fx-background-color: rgba(255, 69, 0, 0.55);
+    -fx-background-color: linear-gradient(to right, rgba(239, 68, 68, 0.35), transparent);
+    -fx-border-color: transparent transparent transparent #ef4444;
 }

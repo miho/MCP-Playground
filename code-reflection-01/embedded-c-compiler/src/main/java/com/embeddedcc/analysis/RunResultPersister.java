@@ -42,7 +42,8 @@ public class RunResultPersister {
         }
     }
 
-    public RunRecord persist(String code,
+    public RunRecord persist(String originalCode,
+                             String instrumentedCode,
                              RunResult runResult,
                              CacheSummary summary,
                              CacheConfiguration cacheConfiguration,
@@ -59,7 +60,11 @@ public class RunResultPersister {
         Map<String, Object> root = new HashMap<>();
         root.put("run_id", runId);
         root.put("timestamp", Instant.now().toString());
-        root.put("code_length", code != null ? code.length() : 0);
+        root.put("original_code", originalCode != null ? originalCode : "");
+        root.put("code_length", originalCode != null ? originalCode.length() : 0);
+        if (instrumentedCode != null && !instrumentedCode.isEmpty()) {
+            root.put("instrumented_code", instrumentedCode);
+        }
         if (metadata != null && !metadata.isEmpty()) {
             root.put("metadata", metadata);
         }
@@ -127,7 +132,9 @@ public class RunResultPersister {
                 pointDescriptions,
                 cacheConfiguration,
                 defines == null ? List.of() : List.copyOf(defines),
-                metadata == null ? Map.of() : Map.copyOf(metadata)
+                metadata == null ? Map.of() : Map.copyOf(metadata),
+                originalCode,
+                instrumentedCode
         ));
 
         return record;
@@ -174,7 +181,9 @@ public class RunResultPersister {
                                   List<Map<String, Object>> instrumentedPoints,
                                   CacheConfiguration cacheConfiguration,
                                   List<String> defines,
-                                  Map<String, Object> metadata) {
+                                  Map<String, Object> metadata,
+                                  String originalCode,
+                                  String instrumentedCode) {
     }
 
     @FunctionalInterface

@@ -1,0 +1,545 @@
+/* ===================================================================
+   Enhanced Styles for Cache Analysis Application
+   Modern, beautiful design with smooth animations and gradients
+   =================================================================== */
+
+/* Root and Base Styles */
+.root {
+    -fx-font-family: "Segoe UI", "San Francisco", "Helvetica Neue", "Arial", sans-serif;
+    -fx-font-size: 13px;
+}
+
+/* ===================================================================
+   Enhanced Code View Styles
+   =================================================================== */
+
+.enhanced-code-scroll {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-border-base;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.code-area {
+    -fx-font-family: "Fira Code", "JetBrains Mono", "Consolas", "Monaco", monospace;
+    -fx-font-size: 13px;
+    -fx-padding: 8;
+}
+
+.line-number-container {
+    -fx-background-color: rgba(128, 128, 128, 0.05);
+    -fx-border-color: transparent transparent transparent rgba(128, 128, 128, 0.15);
+    -fx-border-width: 0 0 0 1;
+}
+
+/* Heat Indicator Styles */
+.heat-indicator {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 4, 0.3, 0, 1);
+}
+
+/* Severity Dots */
+.severity-dot {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.3), 3, 0.4, 0, 1);
+}
+
+.hotspot-low-dot {
+    -fx-fill: linear-gradient(to bottom, #fbbf24, #f59e0b);
+}
+
+.hotspot-medium-dot {
+    -fx-fill: linear-gradient(to bottom, #fb923c, #ea580c);
+}
+
+.hotspot-high-dot {
+    -fx-fill: linear-gradient(to bottom, #f87171, #dc2626);
+}
+
+/* Focused Line (temporary highlight) */
+.focused-line {
+    -fx-background-color: rgba(59, 130, 246, 0.15);
+    -fx-border-color: transparent transparent transparent rgba(59, 130, 246, 0.6);
+    -fx-border-width: 0 0 0 3;
+}
+
+/* Enhanced Hotspot Highlighting */
+.hotspot {
+    -fx-background-color: transparent;
+    -fx-border-width: 0 0 0 4;
+}
+
+.hotspot-low {
+    -fx-background-color: linear-gradient(to right, rgba(250, 204, 21, 0.15), transparent);
+    -fx-border-color: transparent transparent transparent #facc15;
+}
+
+.hotspot-medium {
+    -fx-background-color: linear-gradient(to right, rgba(251, 146, 60, 0.2), transparent);
+    -fx-border-color: transparent transparent transparent #fb923c;
+}
+
+.hotspot-high {
+    -fx-background-color: linear-gradient(to right, rgba(239, 68, 68, 0.25), transparent);
+    -fx-border-color: transparent transparent transparent #ef4444;
+    -fx-effect: dropshadow(gaussian, rgba(239, 68, 68, 0.3), 8, 0.4, 0, 0);
+}
+
+/* Metrics Tooltip */
+.metrics-tooltip {
+    -fx-font-family: "Consolas", "Monaco", monospace;
+    -fx-font-size: 12px;
+    -fx-background-color: linear-gradient(to bottom, #2d3748, #1a202c);
+    -fx-text-fill: #e2e8f0;
+    -fx-padding: 12;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.5), 12, 0.5, 0, 4);
+}
+
+/* ===================================================================
+   Performance Dashboard Styles
+   =================================================================== */
+
+.performance-dashboard {
+    -fx-background-color: transparent;
+}
+
+.dashboard-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+    -fx-padding: 0 0 8 0;
+}
+
+/* Metric Cards */
+.metric-card {
+    -fx-background-color: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: rgba(128, 128, 128, 0.2);
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 8, 0.3, 0, 2);
+    -fx-cursor: hand;
+}
+
+.metric-card:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 12, 0.4, 0, 3);
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+.metric-card-success {
+    -fx-border-color: rgba(34, 197, 94, 0.4);
+}
+
+.metric-card-warning {
+    -fx-border-color: rgba(245, 158, 11, 0.4);
+}
+
+.metric-card-danger {
+    -fx-border-color: rgba(239, 68, 68, 0.4);
+}
+
+.metric-card-info {
+    -fx-border-color: rgba(59, 130, 246, 0.4);
+}
+
+.metric-card-title {
+    -fx-font-size: 11px;
+    -fx-text-fill: rgba(128, 128, 128, 0.9);
+    -fx-font-weight: 600;
+    -fx-text-transform: uppercase;
+    -fx-letter-spacing: 0.5px;
+}
+
+.metric-card-value {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+/* Gauge Styles */
+.gauge-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.gauge-background {
+    -fx-fill: transparent;
+    -fx-stroke: rgba(128, 128, 128, 0.2);
+    -fx-stroke-width: 12;
+}
+
+.gauge-arc {
+    -fx-stroke-line-cap: round;
+}
+
+.gauge-excellent {
+    -fx-stroke: linear-gradient(to bottom, #10b981, #059669);
+}
+
+.gauge-good {
+    -fx-stroke: linear-gradient(to bottom, #3b82f6, #2563eb);
+}
+
+.gauge-fair {
+    -fx-stroke: linear-gradient(to bottom, #f59e0b, #d97706);
+}
+
+.gauge-poor {
+    -fx-stroke: linear-gradient(to bottom, #ef4444, #dc2626);
+}
+
+.gauge-center-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+/* Chart Styles */
+.distribution-chart {
+    -fx-background-color: transparent;
+}
+
+.metrics-chart {
+    -fx-background-color: transparent;
+}
+
+.pie-hits {
+    -fx-pie-color: #10b981;
+}
+
+.pie-misses {
+    -fx-pie-color: #f59e0b;
+}
+
+.pie-evictions {
+    -fx-pie-color: #ef4444;
+}
+
+/* ===================================================================
+   Hotspot Visualization Styles
+   =================================================================== */
+
+.hotspot-visualization {
+    -fx-background-color: transparent;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+    -fx-padding: 0 0 4 0;
+}
+
+.hotspot-table {
+    -fx-background-color: transparent;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.hotspot-table .table-row-cell {
+    -fx-cursor: hand;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: transparent transparent rgba(128, 128, 128, 0.1) transparent;
+}
+
+.hotspot-table .table-row-cell:hover {
+    -fx-background-color: rgba(59, 130, 246, 0.1);
+}
+
+.hotspot-row-high {
+    -fx-background-color: rgba(239, 68, 68, 0.08);
+}
+
+.hotspot-row-high:hover {
+    -fx-background-color: rgba(239, 68, 68, 0.15);
+}
+
+.hotspot-row-medium {
+    -fx-background-color: rgba(245, 158, 11, 0.06);
+}
+
+.hotspot-row-medium:hover {
+    -fx-background-color: rgba(245, 158, 11, 0.12);
+}
+
+.hotspot-row-low {
+    -fx-background-color: rgba(250, 204, 21, 0.04);
+}
+
+.hotspot-row-low:hover {
+    -fx-background-color: rgba(250, 204, 21, 0.08);
+}
+
+/* Severity Bar */
+.severity-bar-high {
+    -fx-fill: linear-gradient(to right, #dc2626, #ef4444);
+    -fx-effect: dropshadow(gaussian, rgba(220, 38, 38, 0.5), 4, 0.5, 0, 0);
+}
+
+.severity-bar-medium {
+    -fx-fill: linear-gradient(to right, #ea580c, #fb923c);
+    -fx-effect: dropshadow(gaussian, rgba(234, 88, 12, 0.4), 3, 0.4, 0, 0);
+}
+
+.severity-bar-low {
+    -fx-fill: linear-gradient(to right, #f59e0b, #fbbf24);
+    -fx-effect: dropshadow(gaussian, rgba(245, 158, 11, 0.3), 2, 0.3, 0, 0);
+}
+
+/* Score Badges */
+.score-badge {
+    -fx-padding: 4 12 4 12;
+    -fx-background-radius: 12;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.score-high {
+    -fx-background-color: linear-gradient(to bottom, #dc2626, #991b1b);
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(220, 38, 38, 0.4), 4, 0.4, 0, 1);
+}
+
+.score-medium {
+    -fx-background-color: linear-gradient(to bottom, #ea580c, #c2410c);
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(234, 88, 12, 0.3), 3, 0.3, 0, 1);
+}
+
+.score-low {
+    -fx-background-color: linear-gradient(to bottom, #f59e0b, #d97706);
+    -fx-text-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(245, 158, 11, 0.3), 2, 0.2, 0, 1);
+}
+
+/* ===================================================================
+   Collapsible Panel Styles
+   =================================================================== */
+
+.collapsible-panel {
+    -fx-background-color: transparent;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.panel-header {
+    -fx-background-color: linear-gradient(to bottom, rgba(128, 128, 128, 0.1), rgba(128, 128, 128, 0.05));
+    -fx-padding: 12 16;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-color: transparent transparent rgba(128, 128, 128, 0.2) transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-cursor: hand;
+}
+
+.panel-header:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(128, 128, 128, 0.15), rgba(128, 128, 128, 0.08));
+}
+
+.panel-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.panel-expand-icon {
+    -fx-font-size: 16px;
+    -fx-text-fill: rgba(128, 128, 128, 0.7);
+}
+
+.panel-content {
+    -fx-padding: 16;
+    -fx-background-color: transparent;
+}
+
+/* ===================================================================
+   Button Enhancements
+   =================================================================== */
+
+.button {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-padding: 8 16;
+    -fx-font-weight: 600;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 2, 0.3, 0, 1);
+}
+
+.button:hover {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 4, 0.4, 0, 2);
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+.button:pressed {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.15), 1, 0.2, 0, 0);
+    -fx-scale-x: 0.98;
+    -fx-scale-y: 0.98;
+}
+
+.primary-button {
+    -fx-background-color: linear-gradient(to bottom, #3b82f6, #2563eb);
+    -fx-text-fill: white;
+}
+
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to bottom, #2563eb, #1d4ed8);
+}
+
+.secondary-button {
+    -fx-background-color: transparent;
+    -fx-border-color: rgba(128, 128, 128, 0.4);
+    -fx-border-width: 1.5;
+}
+
+.secondary-button:hover {
+    -fx-background-color: rgba(128, 128, 128, 0.1);
+}
+
+.success-button {
+    -fx-background-color: linear-gradient(to bottom, #10b981, #059669);
+    -fx-text-fill: white;
+}
+
+.warning-button {
+    -fx-background-color: linear-gradient(to bottom, #f59e0b, #d97706);
+    -fx-text-fill: white;
+}
+
+.danger-button {
+    -fx-background-color: linear-gradient(to bottom, #ef4444, #dc2626);
+    -fx-text-fill: white;
+}
+
+/* ===================================================================
+   Table Enhancements
+   =================================================================== */
+
+.table-view {
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: rgba(128, 128, 128, 0.2);
+    -fx-border-width: 1;
+}
+
+.table-view .column-header {
+    -fx-background-color: linear-gradient(to bottom, rgba(128, 128, 128, 0.12), rgba(128, 128, 128, 0.08));
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-padding: 8;
+}
+
+.table-row-cell.best-row {
+    -fx-background-color: rgba(34, 197, 94, 0.15);
+    -fx-border-color: transparent transparent rgba(34, 197, 94, 0.3) transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.table-row-cell.best-row:hover {
+    -fx-background-color: rgba(34, 197, 94, 0.25);
+}
+
+/* ===================================================================
+   Progress and Loading Indicators
+   =================================================================== */
+
+.progress-indicator {
+    -fx-progress-color: linear-gradient(to right, #3b82f6, #8b5cf6);
+}
+
+.progress-bar {
+    -fx-accent: linear-gradient(to right, #3b82f6, #8b5cf6);
+}
+
+/* ===================================================================
+   Tab Pane Enhancements
+   =================================================================== */
+
+.tab-pane {
+    -fx-background-color: transparent;
+}
+
+.tab {
+    -fx-background-color: rgba(128, 128, 128, 0.08);
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 8 16;
+    -fx-font-weight: 600;
+}
+
+.tab:selected {
+    -fx-background-color: linear-gradient(to bottom, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+    -fx-border-color: transparent transparent #3b82f6 transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+.tab:hover {
+    -fx-background-color: rgba(128, 128, 128, 0.12);
+}
+
+/* ===================================================================
+   Scroll Bar Enhancements
+   =================================================================== */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: rgba(128, 128, 128, 0.3);
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(128, 128, 128, 0.5);
+}
+
+.scroll-bar .thumb:pressed {
+    -fx-background-color: rgba(128, 128, 128, 0.7);
+}
+
+.scroll-bar .track {
+    -fx-background-color: rgba(128, 128, 128, 0.05);
+    -fx-background-radius: 4;
+}
+
+/* ===================================================================
+   Animations
+   =================================================================== */
+
+@keyframes pulse {
+    0%, 100% { -fx-opacity: 1.0; }
+    50% { -fx-opacity: 0.5; }
+}
+
+@keyframes slideIn {
+    from { -fx-translate-y: -20; -fx-opacity: 0; }
+    to { -fx-translate-y: 0; -fx-opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { -fx-opacity: 0; }
+    to { -fx-opacity: 1; }
+}
+
+.animated-enter {
+    -fx-animation: slideIn 0.3s ease-out;
+}
+
+/* ===================================================================
+   Status Label
+   =================================================================== */
+
+.status-label {
+    -fx-font-weight: 600;
+    -fx-padding: 8 12;
+    -fx-background-radius: 6;
+    -fx-background-color: rgba(59, 130, 246, 0.1);
+    -fx-border-color: rgba(59, 130, 246, 0.3);
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+}

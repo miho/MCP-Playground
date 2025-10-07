@@ -1,63 +1,234 @@
+/* ===================================================================
+   Dark Theme for Cache Analysis Application
+   Modern dark color scheme with excellent contrast
+   =================================================================== */
+
 .root {
-    -fx-base: #1e1e1e;
-    -fx-background-color: #1e1e1e;
-    -fx-text-fill: #d4d4d4;
+    -fx-base: #0f172a;
+    -fx-background: linear-gradient(to bottom, #0f172a, #1e293b);
+    -fx-background-color: #0f172a;
+    -fx-text-fill: #e2e8f0;
+    -fx-text-base-color: #e2e8f0;
+    -fx-border-base: #334155;
 }
 
 .label, .text {
-    -fx-text-fill: #d4d4d4;
+    -fx-text-fill: #e2e8f0;
 }
 
-.primary-button {
-    -fx-background-color: #007acc;
-    -fx-border-color: transparent;
-}
-
-.secondary-button {
-    -fx-text-fill: #d4d4d4;
-    -fx-border-color: #3c3c3c;
-}
-
-.table-view, .list-view, .combo-box, .spinner {
-    -fx-background-color: #252526;
-    -fx-control-inner-background: #1e1e1e;
-    -fx-text-fill: #d4d4d4;
-}
-
-.code-area {
-    -fx-background-color: #1e1e1e;
-    -fx-text-fill: #d4d4d4;
+/* Enhanced Code Area Dark Theme */
+.code-area-dark {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #e2e8f0;
 }
 
 .virtualized-scroll-pane {
-    -fx-background-color: #1e1e1e;
+    -fx-background-color: #1e293b;
 }
 
+.line-number-container {
+    -fx-background-color: rgba(15, 23, 42, 0.8);
+    -fx-border-color: transparent transparent transparent rgba(100, 116, 139, 0.3);
+}
+
+/* Enhanced Code Syntax Dark Theme */
+.code-area .keyword {
+    -fx-fill: #60a5fa;
+}
+
+.code-area .type {
+    -fx-fill: #c084fc;
+}
+
+.code-area .preprocessor {
+    -fx-fill: #fbbf24;
+}
+
+.code-area .number {
+    -fx-fill: #34d399;
+}
+
+.code-area .string,
+.code-area .char {
+    -fx-fill: #fca5a5;
+}
+
+.code-area .comment {
+    -fx-fill: #6b7280;
+    -fx-font-style: italic;
+}
+
+/* Tables and Lists Dark */
+.table-view, .list-view, .combo-box, .spinner {
+    -fx-background-color: #1e293b;
+    -fx-control-inner-background: #1e293b;
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: #334155;
+}
+
+.table-view .column-header {
+    -fx-background-color: linear-gradient(to bottom, #334155, #1e293b);
+    -fx-text-fill: #cbd5e1;
+}
+
+.table-row-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #e2e8f0;
+}
+
+.table-row-cell:odd {
+    -fx-background-color: rgba(51, 65, 85, 0.3);
+}
+
+.table-row-cell:selected {
+    -fx-background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Server Control Bar */
 .server-control-bar {
-    -fx-background-color: #252526;
-    -fx-border-base: #3c3c3c;
+    -fx-background-color: #1e293b;
+    -fx-border-base: #334155;
 }
 
+/* Metric Cards Dark */
+.metric-card {
+    -fx-background-color: linear-gradient(to bottom, rgba(51, 65, 85, 0.4), rgba(30, 41, 59, 0.6));
+    -fx-border-color: rgba(100, 116, 139, 0.4);
+}
+
+.metric-card:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(51, 65, 85, 0.6), rgba(30, 41, 59, 0.8));
+}
+
+/* Gauge Dark */
+.gauge-background {
+    -fx-stroke: rgba(100, 116, 139, 0.3);
+}
+
+/* Charts Dark */
+.chart {
+    -fx-background-color: transparent;
+}
+
+.chart-plot-background {
+    -fx-background-color: rgba(30, 41, 59, 0.5);
+}
+
+.axis {
+    -fx-tick-label-fill: #94a3b8;
+}
+
+.chart-legend {
+    -fx-background-color: rgba(30, 41, 59, 0.8);
+    -fx-text-fill: #e2e8f0;
+}
+
+/* Panel Headers Dark */
+.panel-header {
+    -fx-background-color: linear-gradient(to bottom, rgba(51, 65, 85, 0.6), rgba(30, 41, 59, 0.4));
+    -fx-border-color: transparent transparent rgba(100, 116, 139, 0.4) transparent;
+}
+
+.panel-header:hover {
+    -fx-background-color: linear-gradient(to bottom, rgba(51, 65, 85, 0.8), rgba(30, 41, 59, 0.6));
+}
+
+/* Buttons Dark */
+.primary-button {
+    -fx-background-color: linear-gradient(to bottom, #2563eb, #1d4ed8);
+}
+
+.primary-button:hover {
+    -fx-background-color: linear-gradient(to bottom, #1d4ed8, #1e40af);
+}
+
+.secondary-button {
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: rgba(100, 116, 139, 0.6);
+}
+
+.secondary-button:hover {
+    -fx-background-color: rgba(51, 65, 85, 0.5);
+}
+
+/* Tab Pane Dark */
+.tab {
+    -fx-background-color: rgba(30, 41, 59, 0.6);
+    -fx-text-fill: #94a3b8;
+}
+
+.tab:selected {
+    -fx-background-color: linear-gradient(to bottom, rgba(37, 99, 235, 0.2), rgba(37, 99, 235, 0.1));
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: transparent transparent #3b82f6 transparent;
+}
+
+.tab:hover {
+    -fx-background-color: rgba(51, 65, 85, 0.6);
+}
+
+/* Scroll Bars Dark */
+.scroll-bar .thumb {
+    -fx-background-color: rgba(148, 163, 184, 0.4);
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(148, 163, 184, 0.6);
+}
+
+.scroll-bar .track {
+    -fx-background-color: rgba(30, 41, 59, 0.3);
+}
+
+/* Status Label Dark */
 .status-label {
-    -fx-text-fill: #dcdcaa;
+    -fx-text-fill: #cbd5e1;
+    -fx-background-color: rgba(37, 99, 235, 0.15);
+    -fx-border-color: rgba(59, 130, 246, 0.4);
 }
 
+/* Text Fields Dark */
+.text-field, .text-area {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: #334155;
+    -fx-prompt-text-fill: #64748b;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-border-color: #3b82f6;
+}
+
+/* Tooltips Dark */
+.tooltip {
+    -fx-background-color: linear-gradient(to bottom, #1e293b, #0f172a);
+    -fx-text-fill: #e2e8f0;
+    -fx-border-color: rgba(100, 116, 139, 0.5);
+}
+
+/* Best Row Dark */
 .table-row-cell.best-row {
-    -fx-background-color: rgba(102, 255, 102, 0.25);
+    -fx-background-color: rgba(34, 197, 94, 0.2);
+    -fx-border-color: transparent transparent rgba(34, 197, 94, 0.4) transparent;
 }
 
+/* Miss Lines Dark */
 .miss-line {
-    -fx-background-color: rgba(255, 128, 128, 0.35);
+    -fx-background-color: linear-gradient(to right, rgba(248, 113, 113, 0.25), transparent);
 }
 
+/* Hotspots Dark - Enhanced gradients */
 .hotspot-low {
-    -fx-background-color: rgba(255, 191, 0, 0.3);
+    -fx-background-color: linear-gradient(to right, rgba(250, 204, 21, 0.2), transparent);
+    -fx-border-color: transparent transparent transparent #facc15;
 }
 
 .hotspot-medium {
-    -fx-background-color: rgba(255, 99, 71, 0.45);
+    -fx-background-color: linear-gradient(to right, rgba(251, 146, 60, 0.3), transparent);
+    -fx-border-color: transparent transparent transparent #fb923c;
 }
 
 .hotspot-high {
-    -fx-background-color: rgba(255, 69, 0, 0.6);
+    -fx-background-color: linear-gradient(to right, rgba(239, 68, 68, 0.35), transparent);
+    -fx-border-color: transparent transparent transparent #ef4444;
 }

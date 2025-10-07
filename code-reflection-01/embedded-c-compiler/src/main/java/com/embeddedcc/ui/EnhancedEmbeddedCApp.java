@@ -11,11 +11,10 @@ import com.embeddedcc.instrumentation.ArrayAccess;
 import com.embeddedcc.instrumentation.InstrumentationPoint;
 import com.embeddedcc.instrumentation.InstrumentedProgram;
 import com.embeddedcc.instrumentation.ProgramAnalysis;
-import com.embeddedcc.ui.components.ServerControlBar;
+import com.embeddedcc.ui.components.*;
 import com.embeddedcc.ui.dialogs.ServerSettingsDialog;
 import com.embeddedcc.ui.server.McpServerManager;
 import com.embeddedcc.ui.server.ServerConfig;
-import com.embeddedcc.ui.server.ServerMode;
 import com.embeddedcc.util.ResourceHelper;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -31,39 +30,35 @@ import javafx.scene.Scene;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class EmbeddedCApp extends Application {
+/**
+ * Enhanced version of the main application with modern UI components,
+ * beautiful visualizations, and improved user experience.
+ */
+public class EnhancedEmbeddedCApp extends Application {
 
     private final ProgramService programService = new ProgramService();
-    private final CodeView codeView = new CodeView();
+    private final EnhancedCodeView codeView = new EnhancedCodeView();
+    private final PerformanceDashboard dashboard = new PerformanceDashboard();
+    private final HotspotVisualization hotspotViz = new HotspotVisualization();
+
     private final ObservableList<CandidateRow> candidates = FXCollections.observableArrayList();
     private final TableView<CandidateRow> candidateTable = new TableView<>(candidates);
-    private final ListView<CacheEventRow> cacheList = new ListView<>();
-    private final ObservableList<HotspotRow> hotspotRows = FXCollections.observableArrayList();
-    private final TableView<HotspotRow> hotspotTable = new TableView<>(hotspotRows);
     private final TextArea outputArea = new TextArea();
     private final TextArea instrumentedArea = new TextArea();
-    private final Label cacheSummaryLabel = new Label("Cache summary: n/a");
     private final Label statusLabel = new Label("Ready");
     private final Label runInfoLabel = new Label("No run executed yet");
     private final ComboBox<String> sampleSelector = new ComboBox<>();
     private final Map<String, String> sampleFiles = new HashMap<>();
+
     private Button runButton;
     private ServerControlBar controlBar;
     private McpServerManager serverManager;
@@ -72,6 +67,7 @@ public class EmbeddedCApp extends Application {
     private Scene mainScene;
     private final RunResultPersister resultPersister = new RunResultPersister();
     private final RunResultPersister.RunResultListener runResultListener = this::handlePersistedResult;
+
     private Spinner<Integer> cacheSetBitsSpinner;
     private Spinner<Integer> cacheLinesPerSetSpinner;
     private Spinner<Integer> cacheBlockBitsSpinner;
@@ -95,12 +91,13 @@ public class EmbeddedCApp extends Application {
         serverManager = new McpServerManager();
         RunResultPersister.addListener(runResultListener);
 
+        // Build main layout
         BorderPane leftPane = buildLeftPane();
         VBox rightPane = buildRightPane();
 
         SplitPane mainSplit = new SplitPane();
         mainSplit.getItems().addAll(leftPane, rightPane);
-        mainSplit.setDividerPositions(0.63);
+        mainSplit.setDividerPositions(0.60);
         SplitPane.setResizableWithParent(leftPane, true);
         SplitPane.setResizableWithParent(rightPane, true);
 
@@ -110,11 +107,11 @@ public class EmbeddedCApp extends Application {
         root.setTop(controlBar);
         root.setCenter(mainSplit);
 
-        Scene scene = new Scene(root, 1400, 900);
+        Scene scene = new Scene(root, 1600, 1000);
         this.mainScene = scene;
         applyTheme(currentTheme);
 
-        primaryStage.setTitle("Embedded C Instrumentation Playground");
+        primaryStage.setTitle("Cache Analysis Studio - Enhanced UI");
         primaryStage.setScene(scene);
         primaryStage.setOnCloseRequest(event -> {
             serverManager.stop();
@@ -127,9 +124,19 @@ public class EmbeddedCApp extends Application {
 
     private BorderPane buildLeftPane() {
         BorderPane pane = new BorderPane();
-        pane.setPadding(new Insets(10));
+        pane.setPadding(new Insets(16));
+
+        // Title for code section
+        Label title = new Label("Source Code");
+        title.getStyleClass().add("section-title");
+        title.setPadding(new Insets(0, 0, 12, 0));
+
         codeView.setEditable(true);
-        pane.setCenter(codeView);
+
+        VBox container = new VBox(8, title, codeView);
+        VBox.setVgrow(codeView, Priority.ALWAYS);
+        pane.setCenter(container);
+
         return pane;
     }
 
@@ -153,50 +160,56 @@ public class EmbeddedCApp extends Application {
     }
 
     private VBox buildRightPane() {
-        VBox container = new VBox(12);
-        container.setPadding(new Insets(12));
-        container.setPrefWidth(520);
+        VBox container = new VBox(16);
+        container.setPadding(new Insets(16));
+        container.setPrefWidth(600);
 
-        HBox sampleBar = buildSampleBar();
-        VBox analysisControls = buildAnalysisControls();
-        HBox actionButtons = buildActionButtons();
-        HBox statusBar = buildStatusBar();
+        // Controls section
+        VBox controlsSection = buildControlsSection();
 
-        VBox cacheSection = buildCacheSection();
-        VBox instrumentationSection = buildInstrumentationTable();
-        TabPane outputTabs = buildOutputTabs();
-        VBox sweepSection = buildSweepSection();
+        // Create tabbed interface for different views
+        TabPane mainTabs = new TabPane();
+        mainTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        VBox controls = new VBox(12, sampleBar, analysisControls, actionButtons, statusBar);
-        controls.setFillWidth(true);
+        // Analysis tab
+        Tab analysisTab = new Tab("Analysis");
+        analysisTab.setContent(buildAnalysisContent());
 
-        SplitPane resizableContent = new SplitPane();
-        resizableContent.setOrientation(Orientation.VERTICAL);
-        cacheSection.setMinHeight(140);
-        instrumentationSection.setMinHeight(180);
-        outputTabs.setMinHeight(200);
-        sweepSection.setMinHeight(160);
-        resizableContent.getItems().addAll(cacheSection, instrumentationSection, outputTabs, sweepSection);
-        resizableContent.setDividerPositions(0.25, 0.55, 0.8);
-        SplitPane.setResizableWithParent(cacheSection, true);
-        SplitPane.setResizableWithParent(instrumentationSection, true);
-        SplitPane.setResizableWithParent(outputTabs, true);
-        SplitPane.setResizableWithParent(sweepSection, true);
+        // Performance tab with dashboard
+        Tab performanceTab = new Tab("Performance");
+        performanceTab.setContent(buildPerformanceContent());
 
-        container.getChildren().addAll(controls, resizableContent);
-        VBox.setVgrow(resizableContent, Priority.ALWAYS);
+        // Results tab
+        Tab resultsTab = new Tab("Results");
+        resultsTab.setContent(buildResultsContent());
+
+        // Block Sweep tab
+        Tab sweepTab = new Tab("Block Sweep");
+        sweepTab.setContent(buildSweepContent());
+
+        mainTabs.getTabs().addAll(analysisTab, performanceTab, resultsTab, sweepTab);
+
+        container.getChildren().addAll(controlsSection, mainTabs);
+        VBox.setVgrow(mainTabs, Priority.ALWAYS);
 
         return container;
     }
 
-    private HBox buildSampleBar() {
-        HBox box = new HBox(8);
-        box.setAlignment(Pos.CENTER_LEFT);
+    private VBox buildControlsSection() {
+        VBox section = new VBox(12);
+
+        // Sample selector
+        HBox sampleBar = new HBox(8);
+        sampleBar.setAlignment(Pos.CENTER_LEFT);
+
+        Label sampleLabel = new Label("Sample:");
+        sampleLabel.getStyleClass().add("control-label");
 
         sampleSelector.getItems().addAll(sampleFiles.keySet());
-        sampleSelector.setPrefWidth(220);
+        sampleSelector.setPrefWidth(200);
 
         Button loadButton = new Button("Load");
+        loadButton.getStyleClass().add("secondary-button");
         loadButton.setOnAction(e -> {
             String key = sampleSelector.getValue();
             if (key != null) {
@@ -205,28 +218,171 @@ public class EmbeddedCApp extends Application {
         });
 
         Button analyzeButton = new Button("Analyze");
+        analyzeButton.getStyleClass().add("secondary-button");
         analyzeButton.setOnAction(e -> refreshAnalysis());
 
-        box.getChildren().addAll(new Label("Samples:"), sampleSelector, loadButton, analyzeButton);
+        sampleBar.getChildren().addAll(sampleLabel, sampleSelector, loadButton, analyzeButton);
 
-        return box;
+        // Cache configuration
+        HBox cacheConfig = buildCacheConfigSection();
+
+        // Action buttons
+        HBox actionButtons = new HBox(8);
+        actionButtons.setAlignment(Pos.CENTER_LEFT);
+
+        runButton = new Button("Instrument & Run Analysis");
+        runButton.getStyleClass().add("primary-button");
+        runButton.setDefaultButton(true);
+        runButton.setOnAction(e -> runPipeline());
+
+        Button selectAllBtn = new Button("Select All");
+        selectAllBtn.getStyleClass().add("secondary-button");
+        selectAllBtn.setOnAction(e -> candidates.forEach(row -> row.setSelected(true)));
+
+        Button clearBtn = new Button("Clear");
+        clearBtn.getStyleClass().add("secondary-button");
+        clearBtn.setOnAction(e -> candidates.forEach(row -> row.setSelected(false)));
+
+        actionButtons.getChildren().addAll(runButton, selectAllBtn, clearBtn);
+
+        // Status
+        statusLabel.getStyleClass().add("status-label");
+        HBox statusBox = new HBox(statusLabel);
+        statusBox.setAlignment(Pos.CENTER_LEFT);
+
+        section.getChildren().addAll(sampleBar, cacheConfig, actionButtons, statusBox);
+        return section;
     }
 
-    private VBox buildAnalysisControls() {
-        VBox box = new VBox(4);
-        Label instrumentationLabel = new Label("Instrumentation Candidates");
-        Label functionsLabel = new Label();
-        functionsLabel.textProperty().bind(Bindings.size(candidates).asString("Detected %d array accesses"));
+    private HBox buildCacheConfigSection() {
+        HBox section = new HBox(12);
+        section.setAlignment(Pos.CENTER_LEFT);
 
-        box.getChildren().addAll(instrumentationLabel, functionsLabel);
-        return box;
+        if (cacheSetBitsSpinner == null) {
+            cacheSetBitsSpinner = createSpinner(1, 12, 5, 1);
+            cacheLinesPerSetSpinner = createSpinner(1, 16, 1, 1);
+            cacheBlockBitsSpinner = createSpinner(1, 10, 5, 1);
+        }
+
+        Label configLabel = new Label("Cache Config:");
+        configLabel.getStyleClass().add("control-label");
+
+        section.getChildren().addAll(
+            configLabel,
+            createLabeledControl("Set bits (s)", cacheSetBitsSpinner),
+            createLabeledControl("Lines/set (E)", cacheLinesPerSetSpinner),
+            createLabeledControl("Block bits (b)", cacheBlockBitsSpinner)
+        );
+
+        return section;
     }
 
-    private VBox buildInstrumentationTable() {
+    private VBox buildAnalysisContent() {
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(16));
+
+        Label title = new Label("Instrumentation Candidates");
+        title.getStyleClass().add("section-title");
+
+        Label countLabel = new Label();
+        countLabel.textProperty().bind(Bindings.size(candidates).asString("Detected %d array accesses"));
+
+        buildInstrumentationTable();
+
+        content.getChildren().addAll(title, countLabel, candidateTable);
+        VBox.setVgrow(candidateTable, Priority.ALWAYS);
+
+        return content;
+    }
+
+    private VBox buildPerformanceContent() {
+        VBox content = new VBox(16);
+        content.setPadding(new Insets(16));
+
+        // Run info
+        Label runInfoTitle = new Label("Run Information");
+        runInfoTitle.getStyleClass().add("section-title");
+        runInfoLabel.setWrapText(true);
+        runInfoLabel.setPadding(new Insets(8));
+        runInfoLabel.getStyleClass().add("info-label");
+
+        // Dashboard
+        dashboard.setPrefHeight(500);
+
+        // Hotspot visualization
+        hotspotViz.setOnHotspotClick(line -> codeView.focusLine(line));
+
+        content.getChildren().addAll(runInfoTitle, runInfoLabel, dashboard, hotspotViz);
+        VBox.setVgrow(hotspotViz, Priority.ALWAYS);
+
+        return content;
+    }
+
+    private VBox buildResultsContent() {
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(16));
+
+        TabPane resultTabs = new TabPane();
+        resultTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        outputArea.setEditable(false);
+        outputArea.setWrapText(true);
+        outputArea.getStyleClass().add("output-area");
+
+        instrumentedArea.setEditable(false);
+        instrumentedArea.setWrapText(true);
+        instrumentedArea.getStyleClass().add("output-area");
+
+        Tab outputTab = new Tab("Program Output", new ScrollPane(outputArea));
+        Tab instrumentedTab = new Tab("Instrumented Code", new ScrollPane(instrumentedArea));
+
+        resultTabs.getTabs().addAll(outputTab, instrumentedTab);
+
+        content.getChildren().add(resultTabs);
+        VBox.setVgrow(resultTabs, Priority.ALWAYS);
+
+        return content;
+    }
+
+    private VBox buildSweepContent() {
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(16));
+
+        if (sweepStartSpinner == null) {
+            sweepStartSpinner = createSpinner(2, 256, 4, 2);
+            sweepEndSpinner = createSpinner(2, 256, 64, 2);
+            sweepStepSpinner = createSpinner(1, 128, 4, 1);
+        }
+
+        sweepMacroField.setPrefWidth(120);
+        sweepMacroField.setPromptText("Macro name");
+
+        sweepButton = new Button("Run Block Size Sweep");
+        sweepButton.getStyleClass().add("success-button");
+        sweepButton.setOnAction(e -> runBlockSweep());
+
+        HBox controls = new HBox(12,
+                createLabeledControl("Macro", sweepMacroField),
+                createLabeledControl("Start", sweepStartSpinner),
+                createLabeledControl("End", sweepEndSpinner),
+                createLabeledControl("Step", sweepStepSpinner),
+                sweepButton
+        );
+        controls.setAlignment(Pos.CENTER_LEFT);
+
+        buildSweepTable();
+
+        content.getChildren().addAll(controls, sweepTable);
+        VBox.setVgrow(sweepTable, Priority.ALWAYS);
+
+        return content;
+    }
+
+    private void buildInstrumentationTable() {
         candidateTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         candidateTable.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
-
         candidateTable.setEditable(true);
+        candidateTable.setPrefHeight(400);
 
         TableColumn<CandidateRow, Boolean> selectCol = new TableColumn<>("Instrument");
         selectCol.setCellValueFactory(data -> data.getValue().selectedProperty());
@@ -245,101 +401,48 @@ public class EmbeddedCApp extends Application {
         exprCol.setCellValueFactory(data -> data.getValue().expressionProperty());
 
         candidateTable.getColumns().addAll(selectCol, lineCol, typeCol, exprCol);
-        candidateTable.setMinHeight(240);
 
         candidateTable.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> {
             if (val != null) {
                 codeView.focusLine(val.getLine());
             }
         });
-
-        VBox box = new VBox(candidateTable);
-        VBox.setVgrow(candidateTable, Priority.ALWAYS);
-        return box;
     }
 
-    private HBox buildActionButtons() {
-        Button selectAll = new Button("Select All");
-        selectAll.setOnAction(e -> candidates.forEach(row -> row.setSelected(true)));
+    private void buildSweepTable() {
+        sweepTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
-        Button clear = new Button("Clear");
-        clear.setOnAction(e -> candidates.forEach(row -> row.setSelected(false)));
+        TableColumn<BlockSweepRow, Number> blockCol = new TableColumn<>("Block Size");
+        blockCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getBlockSize()));
+        blockCol.setPrefWidth(100);
 
-        runButton = new Button("Instrument & Run");
-        runButton.setDefaultButton(true);
-        runButton.setOnAction(e -> runPipeline());
+        TableColumn<BlockSweepRow, Number> missCol = new TableColumn<>("Misses");
+        missCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getMisses()));
 
-        HBox box = new HBox(8, selectAll, clear, runButton);
-        box.setAlignment(Pos.CENTER_LEFT);
-        return box;
-    }
+        TableColumn<BlockSweepRow, Number> hitCol = new TableColumn<>("Hits");
+        hitCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getHits()));
 
-    private HBox buildStatusBar() {
-        statusLabel.getStyleClass().add("status-label");
-        HBox box = new HBox(statusLabel);
-        box.setAlignment(Pos.CENTER_LEFT);
-        return box;
-    }
+        TableColumn<BlockSweepRow, Number> evictionCol = new TableColumn<>("Evictions");
+        evictionCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getEvictions()));
 
-    private TabPane buildOutputTabs() {
-        outputArea.setEditable(false);
-        outputArea.setPrefRowCount(8);
+        TableColumn<BlockSweepRow, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getStatus()));
 
-        instrumentedArea.setEditable(false);
-        instrumentedArea.setPrefRowCount(8);
+        sweepTable.getColumns().addAll(blockCol, missCol, hitCol, evictionCol, statusCol);
+        sweepTable.setPlaceholder(new Label("Run sweep to compare block sizes"));
 
-        Tab outputTab = new Tab("Program Output", new ScrollPane(outputArea));
-        outputTab.setClosable(false);
-
-        Tab instrumentedTab = new Tab("Instrumented Code", new ScrollPane(instrumentedArea));
-        instrumentedTab.setClosable(false);
-
-        TabPane tabs = new TabPane(outputTab, instrumentedTab);
-
-        return tabs;
-    }
-
-    private VBox buildCacheSection() {
-        if (cacheSetBitsSpinner == null) {
-            cacheSetBitsSpinner = createSpinner(1, 12, 5, 1);
-            cacheLinesPerSetSpinner = createSpinner(1, 16, 1, 1);
-            cacheBlockBitsSpinner = createSpinner(1, 10, 5, 1);
-        }
-
-        cacheList.setPrefHeight(160);
-        cacheList.setMaxHeight(Double.MAX_VALUE);
-        cacheList.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> {
-            if (val != null) {
-                CacheEvent event = val.getEvent();
-                cacheList.setTooltip(new Tooltip(event.label()));
-                codeView.focusLine(event.line());
+        sweepTable.setRowFactory(tv -> new TableRow<>() {
+            @Override
+            protected void updateItem(BlockSweepRow item, boolean empty) {
+                super.updateItem(item, empty);
+                getStyleClass().remove("best-row");
+                if (!empty && item != null && item.isBest()) {
+                    if (!getStyleClass().contains("best-row")) {
+                        getStyleClass().add("best-row");
+                    }
+                }
             }
         });
-
-        runInfoLabel.setWrapText(true);
-
-        HBox configRow = new HBox(8,
-                createLabeledControl("Set bits (s)", cacheSetBitsSpinner),
-                createLabeledControl("Lines/set (E)", cacheLinesPerSetSpinner),
-                createLabeledControl("Block bits (b)", cacheBlockBitsSpinner)
-        );
-        configRow.setAlignment(Pos.CENTER_LEFT);
-
-        VBox box = new VBox(6);
-        box.getChildren().addAll(
-                new Label("Cache Configuration"),
-                configRow,
-                new Separator(),
-                new Label("Run Info"),
-                runInfoLabel,
-                new Label("Hotspots"),
-                buildHotspotTable(),
-                new Label("Cache Events"),
-                cacheSummaryLabel,
-                cacheList
-        );
-        VBox.setVgrow(cacheList, Priority.ALWAYS);
-        return box;
     }
 
     private Spinner<Integer> createSpinner(int min, int max, int initial, int step) {
@@ -350,123 +453,10 @@ public class EmbeddedCApp extends Application {
     }
 
     private VBox createLabeledControl(String labelText, Control control) {
-        VBox box = new VBox(2);
+        VBox box = new VBox(4);
         Label label = new Label(labelText);
+        label.getStyleClass().add("control-label");
         box.getChildren().addAll(label, control);
-        return box;
-    }
-
-    private TableView<HotspotRow> buildHotspotTable() {
-        if (hotspotTable.getColumns().isEmpty()) {
-            hotspotTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
-            hotspotTable.setPrefHeight(120);
-
-            TableColumn<HotspotRow, Number> idCol = new TableColumn<>("ID");
-            idCol.setCellValueFactory(data -> data.getValue().idProperty());
-            idCol.setPrefWidth(60);
-
-            TableColumn<HotspotRow, Number> lineCol = new TableColumn<>("Line");
-            lineCol.setCellValueFactory(data -> data.getValue().lineProperty());
-            lineCol.setPrefWidth(70);
-
-            TableColumn<HotspotRow, String> exprCol = new TableColumn<>("Expression");
-            exprCol.setCellValueFactory(data -> data.getValue().expressionProperty());
-
-            TableColumn<HotspotRow, Number> missCol = new TableColumn<>("Misses");
-            missCol.setCellValueFactory(data -> data.getValue().missesProperty());
-
-            TableColumn<HotspotRow, Number> evictCol = new TableColumn<>("Evictions");
-            evictCol.setCellValueFactory(data -> data.getValue().evictionsProperty());
-
-            TableColumn<HotspotRow, Number> scoreCol = new TableColumn<>("Score");
-            scoreCol.setCellValueFactory(data -> data.getValue().scoreProperty());
-
-            hotspotTable.getColumns().addAll(idCol, lineCol, exprCol, missCol, evictCol, scoreCol);
-            hotspotTable.setPlaceholder(new Label("Run instrumentation to see hotspots"));
-            scoreCol.setSortType(TableColumn.SortType.DESCENDING);
-            hotspotTable.getSortOrder().add(scoreCol);
-            hotspotTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, val) -> {
-                if (val != null && val.getLine() > 0) {
-                    codeView.focusLine(val.getLine());
-                }
-            });
-        }
-
-        return hotspotTable;
-    }
-
-    private VBox buildSweepSection() {
-        if (sweepStartSpinner == null) {
-            sweepStartSpinner = createSpinner(2, 256, 4, 2);
-            sweepEndSpinner = createSpinner(2, 256, 64, 2);
-            sweepStepSpinner = createSpinner(1, 128, 4, 1);
-        }
-
-        sweepMacroField.setPrefWidth(120);
-        sweepMacroField.setPromptText("Macro name");
-
-        if (sweepButton == null) {
-            sweepButton = new Button("Sweep Block Sizes");
-            sweepButton.setOnAction(e -> runBlockSweep());
-        }
-
-        HBox controls = new HBox(8,
-                createLabeledControl("Macro", sweepMacroField),
-                createLabeledControl("Start", sweepStartSpinner),
-                createLabeledControl("End", sweepEndSpinner),
-                createLabeledControl("Step", sweepStepSpinner),
-                sweepButton
-        );
-        controls.setAlignment(Pos.CENTER_LEFT);
-
-        if (sweepTable.getColumns().isEmpty()) {
-            sweepTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
-            sweepTable.setMaxHeight(Double.MAX_VALUE);
-
-            TableColumn<BlockSweepRow, Number> blockCol = new TableColumn<>("Block Size");
-            blockCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getBlockSize()));
-            blockCol.setPrefWidth(100);
-
-            TableColumn<BlockSweepRow, Number> missCol = new TableColumn<>("Misses");
-            missCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getMisses()));
-
-            TableColumn<BlockSweepRow, Number> hitCol = new TableColumn<>("Hits");
-            hitCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getHits()));
-
-            TableColumn<BlockSweepRow, Number> evictionCol = new TableColumn<>("Evictions");
-            evictionCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getEvictions()));
-
-            TableColumn<BlockSweepRow, String> statusCol = new TableColumn<>("Status");
-            statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getStatus()));
-
-            TableColumn<BlockSweepRow, String> runCol = new TableColumn<>("Run ID");
-            runCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(
-                    Optional.ofNullable(data.getValue().getRunId()).orElse("-")));
-
-            sweepTable.getColumns().addAll(blockCol, missCol, hitCol, evictionCol, statusCol, runCol);
-            sweepTable.setPlaceholder(new Label("Run sweep to compare block sizes"));
-            sweepTable.setRowFactory(tv -> new TableRow<>() {
-                @Override
-                protected void updateItem(BlockSweepRow item, boolean empty) {
-                    super.updateItem(item, empty);
-                    getStyleClass().remove("best-row");
-                    if (!empty && item != null && item.isBest()) {
-                        if (!getStyleClass().contains("best-row")) {
-                            getStyleClass().add("best-row");
-                        }
-                    }
-                    if (!empty && item != null && item.getResultPath() != null) {
-                        setTooltip(new Tooltip(item.getResultPath()));
-                    } else {
-                        setTooltip(null);
-                    }
-                }
-            });
-        }
-
-        VBox box = new VBox(6);
-        box.getChildren().addAll(new Label("Block Size Sweep"), controls, sweepTable);
-        VBox.setVgrow(sweepTable, Priority.ALWAYS);
         return box;
     }
 
@@ -495,17 +485,23 @@ public class EmbeddedCApp extends Application {
             ArrayAccess access = currentAnalysis.arrayAccesses().get(i);
             candidates.add(new CandidateRow(i, access.getExpression(), access.getAccessType().name(), access.getLine()));
         }
-        statusLabel.setText("Analysis updated");
+        statusLabel.setText("Analysis updated - " + candidates.size() + " array accesses found");
         codeView.clearHighlights();
         sweepRows.clear();
-        sweepTable.refresh();
+        dashboard.reset();
+        hotspotViz.clear();
     }
 
     private void runPipeline() {
         List<InstrumentationPoint> points = buildInstrumentationPoints();
+        if (points.isEmpty()) {
+            showError("Please select at least one instrumentation point");
+            return;
+        }
+
         String codeSnapshot = codeView.getCode();
         runButton.setDisable(true);
-        statusLabel.setText("Running instrumentation...");
+        statusLabel.setText("Running instrumentation and analysis...");
         CacheConfiguration cacheConfig = currentCacheConfiguration();
         runInfoLabel.setText("Executing...");
 
@@ -523,7 +519,7 @@ public class EmbeddedCApp extends Application {
                 if (result.isCompiled()) {
                     try {
                         Map<String, Object> metadata = Map.of(
-                                "tool", "ui_pipeline",
+                                "tool", "enhanced_ui_pipeline",
                                 "defines", List.of()
                         );
                         record = resultPersister.persist(codeSnapshot, program.getSourceCode(),
@@ -540,19 +536,17 @@ public class EmbeddedCApp extends Application {
         task.setOnSucceeded(event -> {
             RunOutcome outcome = task.getValue();
             displayResults(outcome.result(), outcome.program());
+
             if (outcome.result().isCompiled()) {
                 lastSummary = outcome.summary();
-                List<Map<String, Object>> hotspots = CacheInsights.hotspots(outcome.summary(),
-                        outcome.program().getIdLookup(), 10);
-                updateCacheView(outcome.summary(), cacheConfig, hotspots);
+                List<Map<String, Object>> hotspotData = CacheInsights.hotspots(outcome.summary(),
+                        outcome.program().getIdLookup(), 20);
+                updateCacheView(outcome.summary(), cacheConfig, hotspotData);
             } else {
-                cacheSummaryLabel.setText(String.format(
-                        "Cache summary (s=%d, E=%d, b=%d): compile failed",
-                        cacheConfig.setBits(), cacheConfig.linesPerSet(), cacheConfig.blockBits()));
-                cacheList.getItems().clear();
+                dashboard.reset();
+                hotspotViz.clear();
                 codeView.clearHighlights();
-                hotspotRows.clear();
-                runInfoLabel.setText("No run artefact (compile failed)");
+                runInfoLabel.setText("Compilation failed - check results tab");
             }
 
             if (outcome.record() != null) {
@@ -564,9 +558,7 @@ public class EmbeddedCApp extends Application {
                         : "No run artefact generated");
             }
 
-            if (outcome.persistError() != null) {
-                statusLabel.setText("Execution finished (persistence warning)");
-            }
+            statusLabel.setText("Analysis complete");
             runButton.setDisable(false);
         });
 
@@ -574,9 +566,10 @@ public class EmbeddedCApp extends Application {
             Throwable error = task.getException();
             showError(error != null ? error.getMessage() : "Execution failed");
             runButton.setDisable(false);
+            statusLabel.setText("Execution failed");
         });
 
-        Thread thread = new Thread(task, "compile-run-task");
+        Thread thread = new Thread(task, "analysis-task");
         thread.setDaemon(true);
         thread.start();
     }
@@ -601,7 +594,6 @@ public class EmbeddedCApp extends Application {
         }
 
         final String macro = macroValue;
-
         String codeSnapshot = codeView.getCode();
         CacheConfiguration cacheConfig = currentCacheConfiguration();
 
@@ -613,18 +605,21 @@ public class EmbeddedCApp extends Application {
             protected List<BlockSweepRow> call() throws Exception {
                 InstrumentedProgram program = programService.instrument(codeSnapshot, points);
                 List<BlockSweepRow> rows = new ArrayList<>();
+
                 for (int size : blockSizes) {
+                    updateMessage("Testing block size: " + size);
                     List<String> flags = List.of("-D" + macro + "=" + size);
                     List<String> definesForStorage = List.of(macro + "=" + size);
                     RunResult result = programService.compileAndRun(currentSourceName, program, flags);
                     CacheSummary summary = result.isCompiled()
                             ? programService.summarizeCache(result, cacheConfig)
                             : CacheSummary.empty();
+
                     RunResultPersister.RunRecord record = null;
                     if (result.isCompiled()) {
                         try {
                             Map<String, Object> metadata = Map.of(
-                                    "tool", "ui_block_sweep",
+                                    "tool", "enhanced_ui_block_sweep",
                                     "block_macro", macro,
                                     "block_size", size
                             );
@@ -639,21 +634,23 @@ public class EmbeddedCApp extends Application {
             }
         };
 
+        task.messageProperty().addListener((obs, old, msg) -> statusLabel.setText(msg));
+
         task.setOnSucceeded(event -> {
             List<BlockSweepRow> rows = task.getValue();
             markBestBlockSize(rows);
             sweepRows.setAll(rows);
-            sweepTable.refresh();
             sweepTable.sort();
             sweepButton.setDisable(false);
+
             if (rows.stream().anyMatch(BlockSweepRow::isSuccessful)) {
                 BlockSweepRow best = rows.stream()
                         .filter(BlockSweepRow::isSuccessful)
                         .min(Comparator.comparingInt(BlockSweepRow::getMisses))
                         .orElse(null);
                 if (best != null) {
-                    statusLabel.setText("Sweep complete. Best block size: " + best.getBlockSize()
-                            + " (" + best.getMisses() + " misses)");
+                    statusLabel.setText(String.format("Sweep complete. Best: %d (%,d misses)",
+                            best.getBlockSize(), best.getMisses()));
                 } else {
                     statusLabel.setText("Sweep complete");
                 }
@@ -666,6 +663,7 @@ public class EmbeddedCApp extends Application {
             sweepButton.setDisable(false);
             Throwable error = task.getException();
             showError(error != null ? error.getMessage() : "Block sweep failed");
+            statusLabel.setText("Sweep failed");
         });
 
         Thread thread = new Thread(task, "block-sweep-task");
@@ -677,6 +675,7 @@ public class EmbeddedCApp extends Application {
         List<ArrayAccess> accesses = currentAnalysis.arrayAccesses();
         List<InstrumentationPoint> points = new ArrayList<>();
         AtomicInteger idCounter = new AtomicInteger(1);
+
         for (CandidateRow row : candidates) {
             if (row.isSelected()) {
                 if (row.getIndex() >= 0 && row.getIndex() < accesses.size()) {
@@ -689,6 +688,7 @@ public class EmbeddedCApp extends Application {
 
     private void displayResults(RunResult result, InstrumentedProgram program) {
         instrumentedArea.setText(program.getSourceCode());
+
         StringBuilder builder = new StringBuilder();
         builder.append("=== Compilation ===\n");
         builder.append("Exit code: ").append(result.getCompileExitCode()).append("\n");
@@ -696,6 +696,7 @@ public class EmbeddedCApp extends Application {
         if (!result.getCompileStderr().isBlank()) {
             builder.append(result.getCompileStderr()).append("\n");
         }
+
         if (result.isCompiled()) {
             builder.append("\n=== Execution ===\n");
             builder.append("Exit code: ").append(result.getExecutionExitCode()).append("\n");
@@ -703,71 +704,61 @@ public class EmbeddedCApp extends Application {
             if (!result.getExecutionStderr().isBlank()) {
                 builder.append(result.getExecutionStderr()).append("\n");
             }
-            statusLabel.setText("Execution finished");
-        } else {
-            statusLabel.setText("Compilation failed");
         }
+
         outputArea.setText(builder.toString());
     }
 
-    private void updateCacheView(CacheSummary summary, CacheConfiguration config, List<Map<String, Object>> hotspotData) {
-        cacheSummaryLabel.setText(String.format(
-                "Cache summary (s=%d, E=%d, b=%d): %d hits, %d misses, %d evictions",
-                config.setBits(), config.linesPerSet(), config.blockBits(),
-                summary.getHits(), summary.getMisses(), summary.getEvictions()));
+    private void updateCacheView(CacheSummary summary, CacheConfiguration config,
+                                  List<Map<String, Object>> hotspotData) {
+        // Update dashboard with metrics
+        dashboard.updateMetrics(summary);
 
-        List<CacheEventRow> rows = summary.getEvents().stream()
-                .map(CacheEventRow::new)
-                .collect(Collectors.toList());
-        cacheList.getItems().setAll(rows);
-
-        List<Map<String, Object>> hotspots = hotspotData != null ? hotspotData : List.of();
-        hotspotRows.setAll(hotspots.stream()
-                .map(map -> new HotspotRow(
+        // Update hotspot visualization
+        List<HotspotVisualization.HotspotItem> hotspotItems = hotspotData.stream()
+                .map(map -> new HotspotVisualization.HotspotItem(
                         ((Number) map.getOrDefault("id", -1)).intValue(),
-                        map.containsKey("line") ? ((Number) map.get("line")).intValue() : null,
+                        map.containsKey("line") ? ((Number) map.get("line")).intValue() : 0,
                         (String) map.getOrDefault("expression", (String) map.getOrDefault("label", "-")),
                         ((Number) map.getOrDefault("misses", 0)).intValue(),
                         ((Number) map.getOrDefault("evictions", 0)).intValue(),
                         ((Number) map.getOrDefault("score", 0)).intValue()
                 ))
-                .collect(Collectors.toList()));
-        hotspotTable.sort();
+                .collect(Collectors.toList());
 
-        Map<Integer, String> severityMap = new HashMap<>();
-        int maxScore = hotspotRows.stream().mapToInt(HotspotRow::getScore).max().orElse(0);
-        for (HotspotRow row : hotspotRows) {
-            if (row.getLine() > 0) {
-                severityMap.put(row.getLine(), classifyScore(row.getScore(), maxScore));
+        hotspotViz.setHotspots(hotspotItems);
+
+        // Update code view with enhanced metrics
+        Map<Integer, EnhancedCodeView.HotspotMetrics> metricsMap = new HashMap<>();
+        int maxScore = hotspotData.stream()
+                .mapToInt(m -> ((Number) m.getOrDefault("score", 0)).intValue())
+                .max()
+                .orElse(1);
+
+        for (Map<String, Object> data : hotspotData) {
+            if (data.containsKey("line")) {
+                int line = ((Number) data.get("line")).intValue();
+                int misses = ((Number) data.getOrDefault("misses", 0)).intValue();
+                int evictions = ((Number) data.getOrDefault("evictions", 0)).intValue();
+                int score = ((Number) data.getOrDefault("score", 0)).intValue();
+                String expression = (String) data.getOrDefault("expression",
+                        (String) data.getOrDefault("label", ""));
+
+                double severity = maxScore > 0 ? (double) score / maxScore : 0.0;
+
+                metricsMap.put(line, new EnhancedCodeView.HotspotMetrics(
+                        line, misses, evictions, severity, expression
+                ));
             }
         }
 
-        Set<Integer> linesToHighlight = summary.getEvents().stream()
-                .filter(event -> switch (event.type()) {
-                    case MISS, EVICTION -> true;
-                    default -> false;
-                })
-                .map(CacheEvent::line)
-                .collect(Collectors.toSet());
-
-        for (Integer line : linesToHighlight) {
-            severityMap.putIfAbsent(line, "hotspot-low");
-        }
-
-        codeView.highlightHotspots(severityMap);
+        codeView.highlightHotspotsWithMetrics(metricsMap);
     }
 
     private void showError(String message) {
-        statusLabel.setText(message);
+        statusLabel.setText("Error: " + message);
         Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
         alert.showAndWait();
-    }
-
-    private record RunOutcome(InstrumentedProgram program,
-                              RunResult result,
-                              CacheSummary summary,
-                              RunResultPersister.RunRecord record,
-                              String persistError) {
     }
 
     private CacheConfiguration currentCacheConfiguration() {
@@ -813,35 +804,26 @@ public class EmbeddedCApp extends Application {
                 .ifPresent(best -> best.setBest(true));
     }
 
-    private String classifyScore(int score, int maxScore) {
-        if (maxScore <= 0) {
-            return "hotspot-low";
-        }
-        double ratio = score / (double) maxScore;
-        if (ratio >= 0.66) {
-            return "hotspot-high";
-        } else if (ratio >= 0.33) {
-            return "hotspot-medium";
-        }
-        return "hotspot-low";
-    }
-
     private void handlePersistedResult(RunResultPersister.PersistedResult persisted) {
         Map<String, Object> metadata = persisted.metadata();
         String tool = metadata != null ? String.valueOf(metadata.getOrDefault("tool", "")) : "";
-        if ("ui_pipeline".equals(tool) || "ui_block_sweep".equals(tool)) {
+
+        if ("enhanced_ui_pipeline".equals(tool) || "enhanced_ui_block_sweep".equals(tool)) {
             return;
         }
-        if (!tool.isEmpty() && !"compile_and_run_c".equals(tool)) {
-            return;
-        }
+
         Platform.runLater(() -> applyPersistedResult(persisted));
     }
 
     private void applyPersistedResult(RunResultPersister.PersistedResult persisted) {
         CacheSummary summary = persisted.summary();
         CacheConfiguration config = persisted.cacheConfiguration();
-        updateCacheView(summary, config, persisted.hotspots().stream().limit(10).collect(Collectors.toList()));
+
+        List<Map<String, Object>> hotspots = persisted.hotspots().stream()
+                .limit(20)
+                .collect(Collectors.toList());
+
+        updateCacheView(summary, config, hotspots);
         lastSummary = summary;
 
         String originalCode = persisted.originalCode();
@@ -853,8 +835,6 @@ public class EmbeddedCApp extends Application {
         String instrumentedCode = persisted.instrumentedCode();
         if (instrumentedCode != null && !instrumentedCode.isEmpty()) {
             instrumentedArea.setText(instrumentedCode);
-        } else {
-            instrumentedArea.setText("No instrumented code available");
         }
 
         String runId = persisted.record().runId();
@@ -865,7 +845,7 @@ public class EmbeddedCApp extends Application {
 
         runInfoLabel.setText(String.format("Run ID: %s%nResult file: %s%nSource: %s%nDefines: %s",
                 runId, path, tool, defines));
-        statusLabel.setText("Loaded results from " + tool + " (" + runId + ")");
+        statusLabel.setText("Loaded results from " + tool);
     }
 
     private void handleLaunchServer() {
@@ -911,18 +891,33 @@ public class EmbeddedCApp extends Application {
         }
         List<String> stylesheets = mainScene.getStylesheets();
         stylesheets.clear();
+
+        // Apply base styles first
         stylesheets.add(getClass().getResource("/ui/styles.css").toExternalForm());
+
+        // Then enhanced styles
+        stylesheets.add(getClass().getResource("/ui/enhanced-styles.css").toExternalForm());
+
+        // Finally theme-specific styles
         String themeSheet = theme == Theme.DARK ? "/ui/dark-theme.css" : "/ui/light-theme.css";
         stylesheets.add(getClass().getResource(themeSheet).toExternalForm());
+
         codeView.setDarkTheme(theme == Theme.DARK);
     }
 
-    public static void main(String[] args) {
-        launch(args);
+    private record RunOutcome(InstrumentedProgram program,
+                              RunResult result,
+                              CacheSummary summary,
+                              RunResultPersister.RunRecord record,
+                              String persistError) {
     }
 
     private enum Theme {
         DARK,
         LIGHT
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }
