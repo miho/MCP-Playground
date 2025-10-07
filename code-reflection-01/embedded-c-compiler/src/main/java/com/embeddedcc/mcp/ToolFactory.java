@@ -128,12 +128,7 @@ final class ToolFactory {
                     "max_hotspots": {
                       "type": "integer",
                       "minimum": 1,
-                      "description": "Maximum hotspot entries to return"
-                    },
-                    "max_events": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "description": "Limit the number of cache events included in the response"
+                      "description": "Maximum hotspot entries to return in the immediate response"
                     },
                     "return_trace_path": {
                       "type": "boolean",
@@ -169,13 +164,12 @@ final class ToolFactory {
                     List<String> defines = getStringList(args.get("defines"));
 
                     int maxHotspots = Math.max(1, getInt(args, "max_hotspots", 10));
-                    int maxEvents = Math.max(0, getInt(args, "max_events", 200));
                     boolean returnTracePath = getBoolean(args, "return_trace_path", false);
                     String saveTraceTo = getString(args, "save_trace_to");
                     String saveResultsTo = getString(args, "results_path");
 
                     CompileWorkflow workflow = new CompileWorkflow(code, instrumentIds, fileName, cacheConfig,
-                            defines, maxHotspots, maxEvents, returnTracePath, saveTraceTo, saveResultsTo);
+                            defines, maxHotspots, returnTracePath, saveTraceTo, saveResultsTo);
 
                     try {
                         Map<String, Object> response = workflow.execute();
@@ -288,7 +282,6 @@ final class ToolFactory {
                       "items": {"type": "string"},
                       "description": "Subset of result sections to return (summary, hotspots, events_sample, metadata)"
                     },
-                    "max_events": {"type": "integer", "minimum": 0},
                     "max_hotspots": {"type": "integer", "minimum": 1}
                   },
                   "anyOf": [
@@ -315,7 +308,7 @@ final class ToolFactory {
 
                     List<String> sections = getStringList(args.get("sections"));
                     if (sections.isEmpty()) {
-                        sections = List.of("summary", "hotspots", "events_sample", "paths");
+                        sections = List.of("summary", "hotspots", "paths");
                     }
 
                     Path resultPath;
@@ -351,6 +344,7 @@ final class ToolFactory {
                         Map<String, Object> response = new HashMap<>();
                         response.put("run_id", stored.getOrDefault("run_id", runId));
                         response.put("result_path", resultPath.toAbsolutePath().toString());
+                        response.put("storage_dir", RESULT_PERSISTER.getStorageDir().toString());
 
                         if (sections.contains("summary")) {
                             Map<String, Object> summary = new HashMap<>();
@@ -541,7 +535,6 @@ final class ToolFactory {
         private final CacheConfiguration cacheConfiguration;
         private final List<String> compileDefines;
         private final int maxHotspots;
-        private final int maxEvents;
         private final boolean returnTracePath;
         private final String saveTraceTo;
         private final String resultsPath;
@@ -552,7 +545,6 @@ final class ToolFactory {
                                 CacheConfiguration cacheConfiguration,
                                 List<String> compileDefines,
                                 int maxHotspots,
-                                int maxEvents,
                                 boolean returnTracePath,
                                 String saveTraceTo,
                                 String resultsPath) {
@@ -562,7 +554,6 @@ final class ToolFactory {
             this.cacheConfiguration = cacheConfiguration;
             this.compileDefines = compileDefines == null ? List.of() : List.copyOf(compileDefines);
             this.maxHotspots = maxHotspots;
-            this.maxEvents = maxEvents;
             this.returnTracePath = returnTracePath;
             this.saveTraceTo = saveTraceTo;
             this.resultsPath = resultsPath;
@@ -631,9 +622,6 @@ final class ToolFactory {
                 cacheInfo.put("hotspots", CacheInsights.hotspots(summary, runResult.getInstrumentedPoints(), maxHotspots));
                 cacheInfo.put("hotspot_metric", "misses+evictions");
                 cacheInfo.put("total_events", summary.getEvents().size());
-                List<Map<String, Object>> eventSample = CacheInsights.eventSample(summary, maxEvents);
-                cacheInfo.put("events_sample", eventSample);
-                cacheInfo.put("events_sample_count", eventSample.size());
                 response.put("cache", cacheInfo);
 
                 handleTracePersistence(runResult, response);

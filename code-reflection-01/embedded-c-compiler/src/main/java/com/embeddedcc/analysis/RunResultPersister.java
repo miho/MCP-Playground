@@ -14,10 +14,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class RunResultPersister {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final CopyOnWriteArrayList<RunResultListener> LISTENERS = new CopyOnWriteArrayList<>();
     private final Path storageDir;
 
     public RunResultPersister() {
@@ -26,6 +28,18 @@ public class RunResultPersister {
 
     public RunResultPersister(Path storageDir) {
         this.storageDir = storageDir;
+    }
+
+    public static void addListener(RunResultListener listener) {
+        if (listener != null) {
+            LISTENERS.addIfAbsent(listener);
+        }
+    }
+
+    public static void removeListener(RunResultListener listener) {
+        if (listener != null) {
+            LISTENERS.remove(listener);
+        }
     }
 
     public RunRecord persist(String code,
@@ -105,7 +119,18 @@ public class RunResultPersister {
 
         MAPPER.writerWithDefaultPrettyPrinter().writeValue(destination.toFile(), root);
 
-        return new RunRecord(runId, destination, cacheConfiguration);
+        RunRecord record = new RunRecord(runId, destination, cacheConfiguration);
+        notifyListeners(new PersistedResult(
+                record,
+                summary,
+                hotspotList,
+                pointDescriptions,
+                cacheConfiguration,
+                defines == null ? List.of() : List.copyOf(defines),
+                metadata == null ? Map.of() : Map.copyOf(metadata)
+        ));
+
+        return record;
     }
 
     public String readRunAsString(String runId) throws IOException {
@@ -141,5 +166,28 @@ public class RunResultPersister {
     }
 
     public record RunRecord(String runId, Path path, CacheConfiguration cacheConfiguration) {
+    }
+
+    public record PersistedResult(RunRecord record,
+                                  CacheSummary summary,
+                                  List<Map<String, Object>> hotspots,
+                                  List<Map<String, Object>> instrumentedPoints,
+                                  CacheConfiguration cacheConfiguration,
+                                  List<String> defines,
+                                  Map<String, Object> metadata) {
+    }
+
+    @FunctionalInterface
+    public interface RunResultListener {
+        void onPersisted(PersistedResult result);
+    }
+
+    private void notifyListeners(PersistedResult result) {
+        for (RunResultListener listener : LISTENERS) {
+            try {
+                listener.onPersisted(result);
+            } catch (Exception ignored) {
+            }
+        }
     }
 }

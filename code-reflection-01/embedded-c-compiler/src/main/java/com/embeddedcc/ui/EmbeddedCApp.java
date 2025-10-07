@@ -71,6 +71,7 @@ public class EmbeddedCApp extends Application {
     private Theme currentTheme = Theme.DARK;
     private Scene mainScene;
     private final RunResultPersister resultPersister = new RunResultPersister();
+    private final RunResultPersister.RunResultListener runResultListener = this::handlePersistedResult;
     private Spinner<Integer> cacheSetBitsSpinner;
     private Spinner<Integer> cacheLinesPerSetSpinner;
     private Spinner<Integer> cacheBlockBitsSpinner;
@@ -92,6 +93,7 @@ public class EmbeddedCApp extends Application {
         sampleFiles.put("Blocked Transpose", "csamples/transpose_blocking.c");
 
         serverManager = new McpServerManager();
+        RunResultPersister.addListener(runResultListener);
 
         BorderPane leftPane = buildLeftPane();
         VBox rightPane = buildRightPane();
@@ -114,7 +116,10 @@ public class EmbeddedCApp extends Application {
 
         primaryStage.setTitle("Embedded C Instrumentation Playground");
         primaryStage.setScene(scene);
-        primaryStage.setOnCloseRequest(event -> serverManager.stop());
+        primaryStage.setOnCloseRequest(event -> {
+            serverManager.stop();
+            RunResultPersister.removeListener(runResultListener);
+        });
         primaryStage.show();
 
         loadSample("Matrix Multiply");
@@ -537,7 +542,9 @@ public class EmbeddedCApp extends Application {
             displayResults(outcome.result(), outcome.program());
             if (outcome.result().isCompiled()) {
                 lastSummary = outcome.summary();
-                updateCacheView(outcome.summary(), cacheConfig, outcome.program());
+                List<Map<String, Object>> hotspots = CacheInsights.hotspots(outcome.summary(),
+                        outcome.program().getIdLookup(), 10);
+                updateCacheView(outcome.summary(), cacheConfig, hotspots);
             } else {
                 cacheSummaryLabel.setText(String.format(
                         "Cache summary (s=%d, E=%d, b=%d): compile failed",
@@ -703,7 +710,7 @@ public class EmbeddedCApp extends Application {
         outputArea.setText(builder.toString());
     }
 
-    private void updateCacheView(CacheSummary summary, CacheConfiguration config, InstrumentedProgram program) {
+    private void updateCacheView(CacheSummary summary, CacheConfiguration config, List<Map<String, Object>> hotspotData) {
         cacheSummaryLabel.setText(String.format(
                 "Cache summary (s=%d, E=%d, b=%d): %d hits, %d misses, %d evictions",
                 config.setBits(), config.linesPerSet(), config.blockBits(),
@@ -714,7 +721,7 @@ public class EmbeddedCApp extends Application {
                 .collect(Collectors.toList());
         cacheList.getItems().setAll(rows);
 
-        List<Map<String, Object>> hotspots = CacheInsights.hotspots(summary, program.getIdLookup(), 10);
+        List<Map<String, Object>> hotspots = hotspotData != null ? hotspotData : List.of();
         hotspotRows.setAll(hotspots.stream()
                 .map(map -> new HotspotRow(
                         ((Number) map.getOrDefault("id", -1)).intValue(),
@@ -817,6 +824,35 @@ public class EmbeddedCApp extends Application {
             return "hotspot-medium";
         }
         return "hotspot-low";
+    }
+
+    private void handlePersistedResult(RunResultPersister.PersistedResult persisted) {
+        Map<String, Object> metadata = persisted.metadata();
+        String tool = metadata != null ? String.valueOf(metadata.getOrDefault("tool", "")) : "";
+        if ("ui_pipeline".equals(tool) || "ui_block_sweep".equals(tool)) {
+            return;
+        }
+        if (!tool.isEmpty() && !"compile_and_run_c".equals(tool)) {
+            return;
+        }
+        Platform.runLater(() -> applyPersistedResult(persisted));
+    }
+
+    private void applyPersistedResult(RunResultPersister.PersistedResult persisted) {
+        CacheSummary summary = persisted.summary();
+        CacheConfiguration config = persisted.cacheConfiguration();
+        updateCacheView(summary, config, persisted.hotspots().stream().limit(10).collect(Collectors.toList()));
+        lastSummary = summary;
+
+        String runId = persisted.record().runId();
+        String path = persisted.record().path().toAbsolutePath().toString();
+        Map<String, Object> metadata = persisted.metadata();
+        String tool = metadata != null ? String.valueOf(metadata.getOrDefault("tool", "MCP")) : "MCP";
+        String defines = persisted.defines().isEmpty() ? "-" : String.join(", ", persisted.defines());
+
+        runInfoLabel.setText(String.format("Run ID: %s%nResult file: %s%nSource: %s%nDefines: %s",
+                runId, path, tool, defines));
+        statusLabel.setText("Loaded results from " + tool + " (" + runId + ")");
     }
 
     private void handleLaunchServer() {

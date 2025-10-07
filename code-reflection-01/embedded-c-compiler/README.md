@@ -46,6 +46,7 @@ Both the UI and MCP endpoints report the `hotspots` array (sorted by misses + ev
 - The status indicator mirrors the server log stream; green means the process is live.
 - The ☾/☼ button toggles between dark and light themes.
 - The right-hand panel now lists the hottest instrumented lines with a heat-map colour scale and shows the run artefact path saved on disk.
+- Runs triggered through the MCP API (`compile_and_run_c`) automatically appear in the hotspot panel once the JSON artefact is written.
 
 ### Retrieve Past Run Results
 
@@ -80,7 +81,7 @@ GRADLE_USER_HOME=./.gradle ./gradlew runServer
 Available tools:
 
 - `analyze_c_code` – Returns functions and array access candidates.
-- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics and hotspot rankings. Options: `defines`, `max_hotspots`, `max_events`, `return_trace_path`, `save_trace_to`, `results_path`.
+- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics and hotspot rankings (full traces/events are saved to disk for later inspection). Options: `defines`, `max_hotspots`, `return_trace_path`, `save_trace_to`, `results_path`.
 - `sweep_block_sizes` – Runs multiple compilations with varying block sizes (via `BLOCK_SIZE` or a custom macro) and returns cache statistics plus hotspot summaries for each run.
 - `get_run_result` – Fetches persisted analysis for a previous run. Provide `run_id` (or a direct `path`) and optional `sections`, `max_hotspots`, `max_events` to control the payload size.
 
