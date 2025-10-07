@@ -37,7 +37,7 @@ GRADLE_USER_HOME=./.gradle ./gradlew run
 4. Choose a sweep range, e.g. start `4`, end `64`, step `4`, and click **Sweep Block Sizes**.
 5. The results table ranks each block size by cache misses; the best configuration is highlighted in green.
 
-Both the UI and MCP endpoints report the `hotspots` array (sorted by misses + evictions) so you can focus on the hottest memory accesses without streaming the full trace. Include `max_hotspots` or `max_events` when calling the MCP tool to tune the response size, and set `return_trace_path`/`save_trace_to` to retain the raw trace on disk if deeper offline analysis is required.
+Both the UI and MCP endpoints report the `hotspots` array (sorted by misses + evictions) so you can focus on the hottest memory accesses without streaming the full trace. Include `max_hotspots` or `max_events` when calling the MCP tool to tune the response size, and set `return_trace_path`/`save_trace_to` to retain the raw trace on disk if deeper offline analysis is required. Full run artefacts (summary, hotspots, every cache event, trace location) are persisted under `~/.embeddedcc/runs` and can be revisited later via the `get_run_result` tool.
 
 ### MCP Server Controls in the UI
 
@@ -45,6 +45,23 @@ Both the UI and MCP endpoints report the `hotspots` array (sorted by misses + ev
 - Click **Settings** to switch between stdio and HTTP transport or adjust the HTTP port.
 - The status indicator mirrors the server log stream; green means the process is live.
 - The ☾/☼ button toggles between dark and light themes.
+- The right-hand panel now lists the hottest instrumented lines with a heat-map colour scale and shows the run artefact path saved on disk.
+
+### Retrieve Past Run Results
+
+Every call to `compile_and_run_c` (and the UI’s local run button) writes a JSON artefact to disk. You can reopen it later without rerunning the program:
+
+```json
+{
+  "type": "get_run_result",
+  "run_id": "run-2025-10-07T14-43-19Z-383cc803",
+  "sections": ["summary", "hotspots", "events_sample"],
+  "max_hotspots": 5,
+  "max_events": 50
+}
+```
+
+Include a `path` instead of `run_id` if you have copied the file elsewhere. Use `results_path` in `compile_and_run_c` to copy the JSON alongside the default `~/.embeddedcc/runs` location.
 
 ### Launch the MCP Server
 
@@ -63,8 +80,9 @@ GRADLE_USER_HOME=./.gradle ./gradlew runServer
 Available tools:
 
 - `analyze_c_code` – Returns functions and array access candidates.
-- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics and hotspot rankings. Options: `defines`, `max_hotspots`, `max_events`, `return_trace_path`, `save_trace_to`.
+- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics and hotspot rankings. Options: `defines`, `max_hotspots`, `max_events`, `return_trace_path`, `save_trace_to`, `results_path`.
 - `sweep_block_sizes` – Runs multiple compilations with varying block sizes (via `BLOCK_SIZE` or a custom macro) and returns cache statistics plus hotspot summaries for each run.
+- `get_run_result` – Fetches persisted analysis for a previous run. Provide `run_id` (or a direct `path`) and optional `sections`, `max_hotspots`, `max_events` to control the payload size.
 
 ### Configure the C Compiler
 
@@ -115,3 +133,5 @@ If you cannot fetch the Gradle distribution due to sandbox restrictions, run the
 - When compiling on Windows, ensure a POSIX-compatible toolchain (e.g., MSYS2 or WSL) is available so `gcc` can be invoked successfully.
 - `transpose_blocking.c` honours the `BLOCK_SIZE` macro, enabling automated sweeps.
 - The JavaFX editor applies basic C syntax highlighting; customize colours by editing the theme CSS under `src/main/resources/ui/`.
+- Complete run artefacts are saved to `~/.embeddedcc/runs`. Use the `get_run_result` MCP tool—or open the files directly—to inspect full hotspot/event breakdowns without rerunning the program.
+- Set the environment variable `EMBEDDED_CC_RUNS_DIR` (or JVM property `-Dembeddedcc.runs.dir=...`) to override where run artefacts are stored.

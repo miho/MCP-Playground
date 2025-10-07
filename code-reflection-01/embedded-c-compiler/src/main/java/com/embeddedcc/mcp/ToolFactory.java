@@ -2,8 +2,9 @@ package com.embeddedcc.mcp;
 
 import com.embeddedcc.analysis.CacheAnalyzer;
 import com.embeddedcc.analysis.CacheConfiguration;
-import com.embeddedcc.analysis.CacheEvent;
+import com.embeddedcc.analysis.CacheInsights;
 import com.embeddedcc.analysis.CacheSummary;
+import com.embeddedcc.analysis.RunResultPersister;
 import com.embeddedcc.compiler.CCompilerRunner;
 import com.embeddedcc.compiler.RunResult;
 import com.embeddedcc.instrumentation.ArrayAccess;
@@ -34,50 +35,9 @@ import java.util.stream.Collectors;
 final class ToolFactory {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final RunResultPersister RESULT_PERSISTER = new RunResultPersister();
 
     private ToolFactory() {
-    }
-
-    private static List<Map<String, Object>> buildHotspots(CacheSummary summary,
-                                                           Map<Integer, InstrumentationPoint> points,
-                                                           int limit) {
-        Map<Integer, HotspotAccumulator> accum = new HashMap<>();
-        for (CacheEvent event : summary.getEvents()) {
-            HotspotAccumulator acc = accum.computeIfAbsent(event.id(), id -> new HotspotAccumulator(points.get(id), event));
-            switch (event.type()) {
-                case HIT -> acc.hits++;
-                case MISS -> acc.misses++;
-                case EVICTION -> acc.evictions++;
-            }
-        }
-
-        return accum.values().stream()
-                .sorted((a, b) -> Integer.compare(b.missLike(), a.missLike()))
-                .limit(limit)
-                .map(HotspotAccumulator::toMap)
-                .collect(Collectors.toList());
-    }
-
-    private static List<Map<String, Object>> buildEventSample(CacheSummary summary, int maxEvents) {
-        if (maxEvents == 0) {
-            return List.of();
-        }
-        return summary.getEvents().stream()
-                .limit(maxEvents < 0 ? Long.MAX_VALUE : maxEvents)
-                .map(event -> {
-                    Map<String, Object> entry = new HashMap<>();
-                    entry.put("id", event.id());
-                    entry.put("line", event.line());
-                    entry.put("type", event.type().name());
-                    entry.put("label", event.label());
-                    InstrumentationPoint point = event.source();
-                    if (point != null) {
-                        entry.put("expression", point.getAccess().getExpression());
-                        entry.put("access_type", point.getAccess().getAccessType().name());
-                    }
-                    return entry;
-                })
-                .collect(Collectors.toList());
     }
 
     static McpServerFeatures.AsyncToolSpecification createAnalyzeTool() {
@@ -212,9 +172,10 @@ final class ToolFactory {
                     int maxEvents = Math.max(0, getInt(args, "max_events", 200));
                     boolean returnTracePath = getBoolean(args, "return_trace_path", false);
                     String saveTraceTo = getString(args, "save_trace_to");
+                    String saveResultsTo = getString(args, "results_path");
 
                     CompileWorkflow workflow = new CompileWorkflow(code, instrumentIds, fileName, cacheConfig,
-                            defines, maxHotspots, maxEvents, returnTracePath, saveTraceTo);
+                            defines, maxHotspots, maxEvents, returnTracePath, saveTraceTo, saveResultsTo);
 
                     try {
                         Map<String, Object> response = workflow.execute();
@@ -310,6 +271,133 @@ final class ToolFactory {
                         return Mono.just(error("Execution interrupted"));
                     } catch (IOException e) {
                         return Mono.just(error("Execution failed: " + e.getMessage()));
+                    }
+                })
+                .build();
+    }
+
+    static McpServerFeatures.AsyncToolSpecification createGetRunResultTool() {
+        String schema = """
+                {
+                  "type": "object",
+                  "properties": {
+                    "run_id": {"type": "string"},
+                    "path": {"type": "string"},
+                    "sections": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                      "description": "Subset of result sections to return (summary, hotspots, events_sample, metadata)"
+                    },
+                    "max_events": {"type": "integer", "minimum": 0},
+                    "max_hotspots": {"type": "integer", "minimum": 1}
+                  },
+                  "anyOf": [
+                    {"required": ["run_id"]},
+                    {"required": ["path"]}
+                  ]
+                }
+                """;
+
+        var tool = McpSchema.Tool.builder()
+                .name("get_run_result")
+                .description("Retrieve persisted cache-analysis results for a previous run.")
+                .inputSchema(io.modelcontextprotocol.json.McpJsonMapper.createDefault(), schema)
+                .build();
+
+        return new McpServerFeatures.AsyncToolSpecification.Builder()
+                .tool(tool)
+                .callHandler((context, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String runId = getString(args, "run_id");
+                    String providedPath = getString(args, "path");
+                    int maxEvents = Math.max(0, getInt(args, "max_events", 200));
+                    int maxHotspots = Math.max(1, getInt(args, "max_hotspots", 20));
+
+                    List<String> sections = getStringList(args.get("sections"));
+                    if (sections.isEmpty()) {
+                        sections = List.of("summary", "hotspots", "events_sample", "paths");
+                    }
+
+                    Path resultPath;
+                    if (providedPath != null && !providedPath.isBlank()) {
+                        resultPath = Path.of(providedPath);
+                    } else {
+                        if (runId == null || runId.isBlank()) {
+                            return Mono.just(error("run_id or path must be provided"));
+                        }
+                        if (!RESULT_PERSISTER.exists(runId)) {
+                            return Mono.just(error("Unknown run_id: " + runId));
+                        }
+                        resultPath = RESULT_PERSISTER.resolve(runId);
+                    }
+
+                    if (!Files.exists(resultPath)) {
+                        if (!resultPath.isAbsolute()) {
+                            Path alt = RESULT_PERSISTER.getStorageDir().resolve(resultPath).normalize();
+                            if (Files.exists(alt)) {
+                                resultPath = alt;
+                            } else {
+                                return Mono.just(error("Result path not found: " + resultPath));
+                            }
+                        } else {
+                            return Mono.just(error("Result path not found: " + resultPath));
+                        }
+                    }
+                    resultPath = resultPath.toAbsolutePath();
+
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> stored = MAPPER.readValue(resultPath.toFile(), Map.class);
+                        Map<String, Object> response = new HashMap<>();
+                        response.put("run_id", stored.getOrDefault("run_id", runId));
+                        response.put("result_path", resultPath.toAbsolutePath().toString());
+
+                        if (sections.contains("summary")) {
+                            Map<String, Object> summary = new HashMap<>();
+                            summary.put("timestamp", stored.get("timestamp"));
+                            summary.put("cache", stored.get("cache"));
+                            summary.put("compile", stored.get("compile"));
+                            summary.put("execution", stored.get("execution"));
+                            summary.put("defines", stored.get("defines"));
+                            summary.put("instrumented_points", stored.get("instrumented_points"));
+                            response.put("summary", summary);
+                        }
+
+                        if (sections.contains("hotspots")) {
+                            @SuppressWarnings("unchecked")
+                            List<Object> hotspots = (List<Object>) stored.getOrDefault("hotspots", List.of());
+                            response.put("hotspots", hotspots.stream()
+                                    .limit(maxHotspots)
+                                    .collect(Collectors.toList()));
+                        }
+
+                        if (sections.contains("events_sample")) {
+                            @SuppressWarnings("unchecked")
+                            List<Object> events = (List<Object>) stored.getOrDefault("events", List.of());
+                            response.put("events_sample", events.stream()
+                                    .limit(maxEvents < 0 ? events.size() : maxEvents)
+                                    .collect(Collectors.toList()));
+                            response.put("events_total", events.size());
+                        }
+
+                        if (sections.contains("metadata")) {
+                            response.put("metadata", stored.get("metadata"));
+                        }
+
+                        if (sections.contains("paths")) {
+                            Map<String, Object> paths = new HashMap<>();
+                            if (stored.containsKey("trace_path")) {
+                                paths.put("trace_path", stored.get("trace_path"));
+                            }
+                            if (stored.containsKey("working_directory")) {
+                                paths.put("working_directory", stored.get("working_directory"));
+                            }
+                            response.put("paths", paths);
+                        }
+
+                        return Mono.just(success(toJson(response)));
+                    } catch (IOException e) {
+                        return Mono.just(error("Failed to read run result: " + e.getMessage()));
                     }
                 })
                 .build();
@@ -456,6 +544,7 @@ final class ToolFactory {
         private final int maxEvents;
         private final boolean returnTracePath;
         private final String saveTraceTo;
+        private final String resultsPath;
 
         private CompileWorkflow(String code,
                                 List<Integer> instrumentIds,
@@ -465,7 +554,8 @@ final class ToolFactory {
                                 int maxHotspots,
                                 int maxEvents,
                                 boolean returnTracePath,
-                                String saveTraceTo) {
+                                String saveTraceTo,
+                                String resultsPath) {
             this.code = code;
             this.instrumentIds = instrumentIds;
             this.fileName = fileName;
@@ -475,6 +565,7 @@ final class ToolFactory {
             this.maxEvents = maxEvents;
             this.returnTracePath = returnTracePath;
             this.saveTraceTo = saveTraceTo;
+            this.resultsPath = resultsPath;
         }
 
         Map<String, Object> execute() throws IOException, InterruptedException {
@@ -537,15 +628,61 @@ final class ToolFactory {
                 cacheInfo.put("hits", summary.getHits());
                 cacheInfo.put("misses", summary.getMisses());
                 cacheInfo.put("evictions", summary.getEvictions());
-                cacheInfo.put("hotspots", buildHotspots(summary, runResult.getInstrumentedPoints(), maxHotspots));
+                cacheInfo.put("hotspots", CacheInsights.hotspots(summary, runResult.getInstrumentedPoints(), maxHotspots));
                 cacheInfo.put("hotspot_metric", "misses+evictions");
                 cacheInfo.put("total_events", summary.getEvents().size());
-                List<Map<String, Object>> eventSample = buildEventSample(summary, maxEvents);
+                List<Map<String, Object>> eventSample = CacheInsights.eventSample(summary, maxEvents);
                 cacheInfo.put("events_sample", eventSample);
                 cacheInfo.put("events_sample_count", eventSample.size());
                 response.put("cache", cacheInfo);
 
                 handleTracePersistence(runResult, response);
+
+                Map<String, Object> recordMetadata = new HashMap<>();
+                recordMetadata.put("tool", "compile_and_run_c");
+                recordMetadata.put("defines", compileDefines);
+
+                RunResultPersister.RunRecord record = RESULT_PERSISTER.persist(
+                        code,
+                        runResult,
+                        summary,
+                        cacheConfiguration,
+                        points,
+                        compileDefines,
+                        recordMetadata
+                );
+
+                Map<String, Object> runMeta = new HashMap<>();
+                runMeta.put("run_id", record.runId());
+                runMeta.put("result_path", record.path().toAbsolutePath().toString());
+                runMeta.put("storage_dir", RESULT_PERSISTER.getStorageDir().toString());
+                if (resultsPath != null && !resultsPath.isBlank()) {
+                    String trimmedPath = resultsPath.trim();
+                    Path target = Path.of(trimmedPath).toAbsolutePath();
+                    Path destination;
+                    try {
+                        boolean treatAsDirectory = Files.exists(target) && Files.isDirectory(target)
+                                || trimmedPath.endsWith("/") || trimmedPath.endsWith("\\");
+
+                        if (treatAsDirectory) {
+                            Files.createDirectories(target);
+                            destination = target.resolve(record.path().getFileName());
+                        } else {
+                            destination = target;
+                            Path parent = destination.getParent();
+                            if (parent != null) {
+                                Files.createDirectories(parent);
+                            }
+                        }
+                        Files.copy(record.path(), destination, StandardCopyOption.REPLACE_EXISTING);
+                        runMeta.put("saved_to", destination.toString());
+                    } catch (IOException e) {
+                        runMeta.put("save_error", e.getMessage());
+                    }
+                }
+                response.put("run_result", runMeta);
+                response.put("run_id", record.runId());
+                response.put("result_path", runMeta.get("result_path"));
             }
 
             return response;
@@ -663,13 +800,32 @@ final class ToolFactory {
                     entry.put("hits", summary.getHits());
                     entry.put("misses", summary.getMisses());
                     entry.put("evictions", summary.getEvictions());
-                    entry.put("hotspots", buildHotspots(summary, result.getInstrumentedPoints(), 5));
+                    entry.put("hotspots", CacheInsights.hotspots(summary, result.getInstrumentedPoints(), 5));
 
                     int score = summary.getMisses() + summary.getEvictions();
                     if (result.getExecutionExitCode() == 0 && score < bestScore) {
                         bestScore = score;
                         bestBlock = size;
                     }
+
+                    Map<String, Object> recordMetadata = new HashMap<>();
+                    recordMetadata.put("tool", "sweep_block_sizes");
+                    recordMetadata.put("block_macro", macro);
+                    recordMetadata.put("block_size", size);
+                    recordMetadata.put("defines", compileDefines);
+
+                    RunResultPersister.RunRecord record = RESULT_PERSISTER.persist(
+                            code,
+                            result,
+                            summary,
+                            cacheConfiguration,
+                            points,
+                            compileDefines,
+                            recordMetadata
+                    );
+                    entry.put("run_id", record.runId());
+                    entry.put("result_path", record.path().toAbsolutePath().toString());
+                    entry.put("storage_dir", RESULT_PERSISTER.getStorageDir().toString());
                 }
 
                 results.add(entry);
@@ -690,56 +846,6 @@ final class ToolFactory {
             response.put("best_block_size", bestBlock);
             response.put("best_score", bestBlock >= 0 ? bestScore : null);
             return response;
-        }
-    }
-
-    private static final class HotspotAccumulator {
-        private final int id;
-        private final Integer line;
-        private final String expression;
-        private final String accessType;
-        private final String label;
-        private int hits;
-        private int misses;
-        private int evictions;
-
-        private HotspotAccumulator(InstrumentationPoint point, CacheEvent event) {
-            this.id = event.id();
-            InstrumentationPoint source = point != null ? point : event.source();
-            if (source != null) {
-                this.line = source.getAccess().getLine();
-                this.expression = source.getAccess().getExpression();
-                this.accessType = source.getAccess().getAccessType().name();
-            } else {
-                this.line = event.line();
-                this.expression = null;
-                this.accessType = null;
-            }
-            this.label = event.label();
-        }
-
-        private int missLike() {
-            return misses + evictions;
-        }
-
-        private Map<String, Object> toMap() {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", id);
-            if (line != null) {
-                map.put("line", line);
-            }
-            map.put("hits", hits);
-            map.put("misses", misses);
-            map.put("evictions", evictions);
-            map.put("score", missLike());
-            if (expression != null) {
-                map.put("expression", expression);
-            }
-            if (accessType != null) {
-                map.put("access_type", accessType);
-            }
-            map.put("label", label);
-            return map;
         }
     }
 }

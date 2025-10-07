@@ -1,6 +1,7 @@
 package com.embeddedcc.ui;
 
 import com.embeddedcc.analysis.CacheSummary;
+import com.embeddedcc.analysis.RunResultPersister;
 import com.embeddedcc.compiler.RunResult;
 
 final class BlockSweepRow {
@@ -12,6 +13,8 @@ final class BlockSweepRow {
     private final String status;
     private final boolean compileSuccess;
     private final boolean executionSuccess;
+    private final String runId;
+    private final String resultPath;
     private boolean best;
 
     private BlockSweepRow(int blockSize,
@@ -20,7 +23,9 @@ final class BlockSweepRow {
                           int evictions,
                           String status,
                           boolean compileSuccess,
-                          boolean executionSuccess) {
+                          boolean executionSuccess,
+                          String runId,
+                          String resultPath) {
         this.blockSize = blockSize;
         this.hits = hits;
         this.misses = misses;
@@ -28,9 +33,11 @@ final class BlockSweepRow {
         this.status = status;
         this.compileSuccess = compileSuccess;
         this.executionSuccess = executionSuccess;
+        this.runId = runId;
+        this.resultPath = resultPath;
     }
 
-    static BlockSweepRow from(int blockSize, RunResult result, CacheSummary summary) {
+    static BlockSweepRow from(int blockSize, RunResult result, CacheSummary summary, RunResultPersister.RunRecord record) {
         boolean compiled = result.isCompiled();
         boolean executed = compiled && result.getExecutionExitCode() == 0;
         int hits = compiled ? summary.getHits() : 0;
@@ -46,7 +53,9 @@ final class BlockSweepRow {
             status = "OK";
         }
 
-        return new BlockSweepRow(blockSize, hits, misses, evictions, status, compiled, executed);
+        String runId = record != null ? record.runId() : null;
+        String resultPath = record != null ? record.path().toAbsolutePath().toString() : null;
+        return new BlockSweepRow(blockSize, hits, misses, evictions, status, compiled, executed, runId, resultPath);
     }
 
     int getBlockSize() {
@@ -80,5 +89,12 @@ final class BlockSweepRow {
     void setBest(boolean best) {
         this.best = best;
     }
-}
 
+    String getRunId() {
+        return runId;
+    }
+
+    String getResultPath() {
+        return resultPath;
+    }
+}

@@ -3,6 +3,8 @@ package com.embeddedcc.ui;
 import com.embeddedcc.analysis.CacheConfiguration;
 import com.embeddedcc.analysis.CacheEvent;
 import com.embeddedcc.analysis.CacheSummary;
+import com.embeddedcc.analysis.CacheInsights;
+import com.embeddedcc.analysis.RunResultPersister;
 import com.embeddedcc.analysis.ProgramService;
 import com.embeddedcc.compiler.RunResult;
 import com.embeddedcc.instrumentation.ArrayAccess;
@@ -53,10 +55,13 @@ public class EmbeddedCApp extends Application {
     private final ObservableList<CandidateRow> candidates = FXCollections.observableArrayList();
     private final TableView<CandidateRow> candidateTable = new TableView<>(candidates);
     private final ListView<CacheEventRow> cacheList = new ListView<>();
+    private final ObservableList<HotspotRow> hotspotRows = FXCollections.observableArrayList();
+    private final TableView<HotspotRow> hotspotTable = new TableView<>(hotspotRows);
     private final TextArea outputArea = new TextArea();
     private final TextArea instrumentedArea = new TextArea();
     private final Label cacheSummaryLabel = new Label("Cache summary: n/a");
     private final Label statusLabel = new Label("Ready");
+    private final Label runInfoLabel = new Label("No run executed yet");
     private final ComboBox<String> sampleSelector = new ComboBox<>();
     private final Map<String, String> sampleFiles = new HashMap<>();
     private Button runButton;
@@ -65,6 +70,7 @@ public class EmbeddedCApp extends Application {
     private ServerConfig serverConfig = ServerConfig.defaultConfig();
     private Theme currentTheme = Theme.DARK;
     private Scene mainScene;
+    private final RunResultPersister resultPersister = new RunResultPersister();
     private Spinner<Integer> cacheSetBitsSpinner;
     private Spinner<Integer> cacheLinesPerSetSpinner;
     private Spinner<Integer> cacheBlockBitsSpinner;
@@ -305,6 +311,8 @@ public class EmbeddedCApp extends Application {
             }
         });
 
+        runInfoLabel.setWrapText(true);
+
         HBox configRow = new HBox(8,
                 createLabeledControl("Set bits (s)", cacheSetBitsSpinner),
                 createLabeledControl("Lines/set (E)", cacheLinesPerSetSpinner),
@@ -317,7 +325,11 @@ public class EmbeddedCApp extends Application {
                 new Label("Cache Configuration"),
                 configRow,
                 new Separator(),
-                new Label("Cache Analysis"),
+                new Label("Run Info"),
+                runInfoLabel,
+                new Label("Hotspots"),
+                buildHotspotTable(),
+                new Label("Cache Events"),
                 cacheSummaryLabel,
                 cacheList
         );
@@ -337,6 +349,45 @@ public class EmbeddedCApp extends Application {
         Label label = new Label(labelText);
         box.getChildren().addAll(label, control);
         return box;
+    }
+
+    private TableView<HotspotRow> buildHotspotTable() {
+        if (hotspotTable.getColumns().isEmpty()) {
+            hotspotTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+            hotspotTable.setPrefHeight(120);
+
+            TableColumn<HotspotRow, Number> idCol = new TableColumn<>("ID");
+            idCol.setCellValueFactory(data -> data.getValue().idProperty());
+            idCol.setPrefWidth(60);
+
+            TableColumn<HotspotRow, Number> lineCol = new TableColumn<>("Line");
+            lineCol.setCellValueFactory(data -> data.getValue().lineProperty());
+            lineCol.setPrefWidth(70);
+
+            TableColumn<HotspotRow, String> exprCol = new TableColumn<>("Expression");
+            exprCol.setCellValueFactory(data -> data.getValue().expressionProperty());
+
+            TableColumn<HotspotRow, Number> missCol = new TableColumn<>("Misses");
+            missCol.setCellValueFactory(data -> data.getValue().missesProperty());
+
+            TableColumn<HotspotRow, Number> evictCol = new TableColumn<>("Evictions");
+            evictCol.setCellValueFactory(data -> data.getValue().evictionsProperty());
+
+            TableColumn<HotspotRow, Number> scoreCol = new TableColumn<>("Score");
+            scoreCol.setCellValueFactory(data -> data.getValue().scoreProperty());
+
+            hotspotTable.getColumns().addAll(idCol, lineCol, exprCol, missCol, evictCol, scoreCol);
+            hotspotTable.setPlaceholder(new Label("Run instrumentation to see hotspots"));
+            scoreCol.setSortType(TableColumn.SortType.DESCENDING);
+            hotspotTable.getSortOrder().add(scoreCol);
+            hotspotTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, val) -> {
+                if (val != null && val.getLine() > 0) {
+                    codeView.focusLine(val.getLine());
+                }
+            });
+        }
+
+        return hotspotTable;
     }
 
     private VBox buildSweepSection() {
@@ -383,7 +434,11 @@ public class EmbeddedCApp extends Application {
             TableColumn<BlockSweepRow, String> statusCol = new TableColumn<>("Status");
             statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getStatus()));
 
-            sweepTable.getColumns().addAll(blockCol, missCol, hitCol, evictionCol, statusCol);
+            TableColumn<BlockSweepRow, String> runCol = new TableColumn<>("Run ID");
+            runCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(
+                    Optional.ofNullable(data.getValue().getRunId()).orElse("-")));
+
+            sweepTable.getColumns().addAll(blockCol, missCol, hitCol, evictionCol, statusCol, runCol);
             sweepTable.setPlaceholder(new Label("Run sweep to compare block sizes"));
             sweepTable.setRowFactory(tv -> new TableRow<>() {
                 @Override
@@ -394,6 +449,11 @@ public class EmbeddedCApp extends Application {
                         if (!getStyleClass().contains("best-row")) {
                             getStyleClass().add("best-row");
                         }
+                    }
+                    if (!empty && item != null && item.getResultPath() != null) {
+                        setTooltip(new Tooltip(item.getResultPath()));
+                    } else {
+                        setTooltip(null);
                     }
                 }
             });
@@ -431,7 +491,7 @@ public class EmbeddedCApp extends Application {
             candidates.add(new CandidateRow(i, access.getExpression(), access.getAccessType().name(), access.getLine()));
         }
         statusLabel.setText("Analysis updated");
-        codeView.highlightLines(Set.of());
+        codeView.clearHighlights();
         sweepRows.clear();
         sweepTable.refresh();
     }
@@ -442,6 +502,7 @@ public class EmbeddedCApp extends Application {
         runButton.setDisable(true);
         statusLabel.setText("Running instrumentation...");
         CacheConfiguration cacheConfig = currentCacheConfiguration();
+        runInfoLabel.setText("Executing...");
 
         Task<RunOutcome> task = new Task<>() {
             @Override
@@ -451,7 +512,23 @@ public class EmbeddedCApp extends Application {
                 CacheSummary summary = result.isCompiled()
                         ? programService.summarizeCache(result, cacheConfig)
                         : CacheSummary.empty();
-                return new RunOutcome(program, result, summary);
+
+                RunResultPersister.RunRecord record = null;
+                String persistError = null;
+                if (result.isCompiled()) {
+                    try {
+                        Map<String, Object> metadata = Map.of(
+                                "tool", "ui_pipeline",
+                                "defines", List.of()
+                        );
+                        record = resultPersister.persist(codeSnapshot, result, summary, cacheConfig,
+                                points, List.of(), metadata);
+                    } catch (IOException e) {
+                        persistError = e.getMessage();
+                    }
+                }
+
+                return new RunOutcome(program, result, summary, record, persistError);
             }
         };
 
@@ -460,13 +537,28 @@ public class EmbeddedCApp extends Application {
             displayResults(outcome.result(), outcome.program());
             if (outcome.result().isCompiled()) {
                 lastSummary = outcome.summary();
-                updateCacheView(outcome.summary(), cacheConfig);
+                updateCacheView(outcome.summary(), cacheConfig, outcome.program());
             } else {
                 cacheSummaryLabel.setText(String.format(
                         "Cache summary (s=%d, E=%d, b=%d): compile failed",
                         cacheConfig.setBits(), cacheConfig.linesPerSet(), cacheConfig.blockBits()));
                 cacheList.getItems().clear();
-                codeView.highlightLines(Set.of());
+                codeView.clearHighlights();
+                hotspotRows.clear();
+                runInfoLabel.setText("No run artefact (compile failed)");
+            }
+
+            if (outcome.record() != null) {
+                runInfoLabel.setText(String.format("Run ID: %s%nResult file: %s",
+                        outcome.record().runId(), outcome.record().path().toAbsolutePath()));
+            } else {
+                runInfoLabel.setText(outcome.persistError() != null
+                        ? "Result persistence failed: " + outcome.persistError()
+                        : "No run artefact generated");
+            }
+
+            if (outcome.persistError() != null) {
+                statusLabel.setText("Execution finished (persistence warning)");
             }
             runButton.setDisable(false);
         });
@@ -516,11 +608,25 @@ public class EmbeddedCApp extends Application {
                 List<BlockSweepRow> rows = new ArrayList<>();
                 for (int size : blockSizes) {
                     List<String> flags = List.of("-D" + macro + "=" + size);
+                    List<String> definesForStorage = List.of(macro + "=" + size);
                     RunResult result = programService.compileAndRun(currentSourceName, program, flags);
                     CacheSummary summary = result.isCompiled()
                             ? programService.summarizeCache(result, cacheConfig)
                             : CacheSummary.empty();
-                    rows.add(BlockSweepRow.from(size, result, summary));
+                    RunResultPersister.RunRecord record = null;
+                    if (result.isCompiled()) {
+                        try {
+                            Map<String, Object> metadata = Map.of(
+                                    "tool", "ui_block_sweep",
+                                    "block_macro", macro,
+                                    "block_size", size
+                            );
+                            record = resultPersister.persist(codeSnapshot, result, summary, cacheConfig,
+                                    points, definesForStorage, metadata);
+                        } catch (IOException ignored) {
+                        }
+                    }
+                    rows.add(BlockSweepRow.from(size, result, summary, record));
                 }
                 return rows;
             }
@@ -531,6 +637,7 @@ public class EmbeddedCApp extends Application {
             markBestBlockSize(rows);
             sweepRows.setAll(rows);
             sweepTable.refresh();
+            sweepTable.sort();
             sweepButton.setDisable(false);
             if (rows.stream().anyMatch(BlockSweepRow::isSuccessful)) {
                 BlockSweepRow best = rows.stream()
@@ -596,7 +703,7 @@ public class EmbeddedCApp extends Application {
         outputArea.setText(builder.toString());
     }
 
-    private void updateCacheView(CacheSummary summary, CacheConfiguration config) {
+    private void updateCacheView(CacheSummary summary, CacheConfiguration config, InstrumentedProgram program) {
         cacheSummaryLabel.setText(String.format(
                 "Cache summary (s=%d, E=%d, b=%d): %d hits, %d misses, %d evictions",
                 config.setBits(), config.linesPerSet(), config.blockBits(),
@@ -607,6 +714,27 @@ public class EmbeddedCApp extends Application {
                 .collect(Collectors.toList());
         cacheList.getItems().setAll(rows);
 
+        List<Map<String, Object>> hotspots = CacheInsights.hotspots(summary, program.getIdLookup(), 10);
+        hotspotRows.setAll(hotspots.stream()
+                .map(map -> new HotspotRow(
+                        ((Number) map.getOrDefault("id", -1)).intValue(),
+                        map.containsKey("line") ? ((Number) map.get("line")).intValue() : null,
+                        (String) map.getOrDefault("expression", (String) map.getOrDefault("label", "-")),
+                        ((Number) map.getOrDefault("misses", 0)).intValue(),
+                        ((Number) map.getOrDefault("evictions", 0)).intValue(),
+                        ((Number) map.getOrDefault("score", 0)).intValue()
+                ))
+                .collect(Collectors.toList()));
+        hotspotTable.sort();
+
+        Map<Integer, String> severityMap = new HashMap<>();
+        int maxScore = hotspotRows.stream().mapToInt(HotspotRow::getScore).max().orElse(0);
+        for (HotspotRow row : hotspotRows) {
+            if (row.getLine() > 0) {
+                severityMap.put(row.getLine(), classifyScore(row.getScore(), maxScore));
+            }
+        }
+
         Set<Integer> linesToHighlight = summary.getEvents().stream()
                 .filter(event -> switch (event.type()) {
                     case MISS, EVICTION -> true;
@@ -615,7 +743,11 @@ public class EmbeddedCApp extends Application {
                 .map(CacheEvent::line)
                 .collect(Collectors.toSet());
 
-        codeView.highlightLines(linesToHighlight);
+        for (Integer line : linesToHighlight) {
+            severityMap.putIfAbsent(line, "hotspot-low");
+        }
+
+        codeView.highlightHotspots(severityMap);
     }
 
     private void showError(String message) {
@@ -626,7 +758,9 @@ public class EmbeddedCApp extends Application {
 
     private record RunOutcome(InstrumentedProgram program,
                               RunResult result,
-                              CacheSummary summary) {
+                              CacheSummary summary,
+                              RunResultPersister.RunRecord record,
+                              String persistError) {
     }
 
     private CacheConfiguration currentCacheConfiguration() {
@@ -670,6 +804,19 @@ public class EmbeddedCApp extends Application {
                 .filter(BlockSweepRow::isSuccessful)
                 .min(Comparator.comparingInt(BlockSweepRow::getMisses))
                 .ifPresent(best -> best.setBest(true));
+    }
+
+    private String classifyScore(int score, int maxScore) {
+        if (maxScore <= 0) {
+            return "hotspot-low";
+        }
+        double ratio = score / (double) maxScore;
+        if (ratio >= 0.66) {
+            return "hotspot-high";
+        } else if (ratio >= 0.33) {
+            return "hotspot-medium";
+        }
+        return "hotspot-low";
     }
 
     private void handleLaunchServer() {

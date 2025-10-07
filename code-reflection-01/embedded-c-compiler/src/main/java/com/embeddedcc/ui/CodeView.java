@@ -7,9 +7,12 @@ import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,6 +21,8 @@ public class CodeView extends BorderPane {
 
     private final CodeArea codeArea = new CodeArea();
     private Set<Integer> highlightedLines = Set.of();
+    private final Set<Integer> hotspotLines = new HashSet<>();
+    private final java.util.Map<Integer, String> hotspotStyles = new java.util.HashMap<>();
 
     private static final String[] KEYWORDS = {
             "if", "else", "for", "while", "do", "switch", "case", "default", "break",
@@ -64,16 +69,7 @@ public class CodeView extends BorderPane {
             lines = Collections.emptySet();
         }
         highlightedLines = new HashSet<>(lines);
-
-        int paragraphCount = codeArea.getParagraphs().size();
-        for (int i = 0; i < paragraphCount; i++) {
-            int lineNumber = i + 1;
-            if (highlightedLines.contains(lineNumber)) {
-                codeArea.setParagraphStyle(i, Collections.singletonList("miss-line"));
-            } else {
-                codeArea.setParagraphStyle(i, Collections.emptyList());
-            }
-        }
+        applyStyles();
     }
 
     public void focusLine(int line) {
@@ -98,9 +94,47 @@ public class CodeView extends BorderPane {
         codeArea.getStyleClass().add(darkTheme ? "code-area-dark" : "code-area-light");
     }
 
+    public void highlightHotspots(Map<Integer, String> severityMap) {
+        hotspotLines.clear();
+        hotspotStyles.clear();
+        if (severityMap != null) {
+            severityMap.forEach((line, style) -> {
+                if (line != null && line > 0) {
+                    hotspotLines.add(line);
+                    hotspotStyles.put(line, style);
+                }
+            });
+        }
+        applyStyles();
+    }
+
+    public void clearHighlights() {
+        highlightedLines = Set.of();
+        hotspotLines.clear();
+        hotspotStyles.clear();
+        applyStyles();
+    }
+
+    private void applyStyles() {
+        int paragraphCount = codeArea.getParagraphs().size();
+        for (int i = 0; i < paragraphCount; i++) {
+            int lineNumber = i + 1;
+            List<String> styles = new ArrayList<>();
+            if (hotspotLines.contains(lineNumber)) {
+                String styleClass = hotspotStyles.getOrDefault(lineNumber, "hotspot-low");
+                styles.add("hotspot");
+                styles.add(styleClass);
+            } else if (highlightedLines.contains(lineNumber)) {
+                styles.add("miss-line");
+            }
+            codeArea.setParagraphStyle(i, styles);
+        }
+    }
+
     private void applyHighlight(String text) {
         StyleSpans<Collection<String>> spans = computeHighlighting(text);
         codeArea.setStyleSpans(0, spans);
+        applyStyles();
     }
 
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
