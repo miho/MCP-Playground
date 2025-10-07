@@ -87,6 +87,9 @@ public class ServerLauncher {
         var applyRecipeTool = ToolFactory.createApplyRecipeTool();
         var analyzeCodeTool = ToolFactory.createAnalyzeCodeTool();
         var createCustomRecipeTool = ToolFactory.createCustomRecipeTool();
+        var applyRecipeToFileTool = ToolFactory.createApplyRecipeToFileTool();
+        var analyzeFileStructureTool = ToolFactory.createAnalyzeFileStructureTool();
+        var listInstrumentationRecipesTool = ToolFactory.createListInstrumentationRecipesTool();
 
         asyncServer = McpServer.async(transportProvider)
                 .serverInfo("openrewrite-mcp-server", getVersion())
@@ -94,7 +97,8 @@ public class ServerLauncher {
                         .tools(true)
                         .build())
                 .tools(listRecipesTool, getRecipeDescriptionTool, applyRecipeTool,
-                       analyzeCodeTool, createCustomRecipeTool)
+                       analyzeCodeTool, createCustomRecipeTool, applyRecipeToFileTool,
+                       analyzeFileStructureTool, listInstrumentationRecipesTool)
                 .build();
 
         logger.info("OpenRewrite MCP Server started (stdio mode)");
@@ -137,6 +141,9 @@ public class ServerLauncher {
         var applyRecipeTool = ToolFactory.createStatelessApplyRecipeTool();
         var analyzeCodeTool = ToolFactory.createStatelessAnalyzeCodeTool();
         var createCustomRecipeTool = ToolFactory.createStatelessCustomRecipeTool();
+        var applyRecipeToFileTool = ToolFactory.createStatelessApplyRecipeToFileTool();
+        var analyzeFileStructureTool = ToolFactory.createStatelessAnalyzeFileStructureTool();
+        var listInstrumentationRecipesTool = ToolFactory.createStatelessListInstrumentationRecipesTool();
 
         syncServer = McpServer.sync(transport)
                 .serverInfo("openrewrite-mcp-server", getVersion())
@@ -144,7 +151,8 @@ public class ServerLauncher {
                         .tools(true)
                         .build())
                 .tools(listRecipesTool, getRecipeDescriptionTool, applyRecipeTool,
-                       analyzeCodeTool, createCustomRecipeTool)
+                       analyzeCodeTool, createCustomRecipeTool, applyRecipeToFileTool,
+                       analyzeFileStructureTool, listInstrumentationRecipesTool)
                 .build();
 
         // Try to bind to port with retries if it's in use

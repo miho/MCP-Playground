@@ -216,7 +216,8 @@ public class McpClient {
                     "arguments", params
                 ));
 
-                String response = sendRequest("", request);
+                // Use longer timeout for analyze operation (5 minutes)
+                String response = sendRequest("", request, 300000);
                 JsonNode root = objectMapper.readTree(response);
 
                 // Parse the content from the result
@@ -289,6 +290,13 @@ public class McpClient {
      * Send HTTP request to the MCP server.
      */
     private String sendRequest(String endpoint, Map<String, Object> requestData) throws Exception {
+        return sendRequest(endpoint, requestData, 30000);
+    }
+
+    /**
+     * Send HTTP request to the MCP server with custom timeout.
+     */
+    private String sendRequest(String endpoint, Map<String, Object> requestData, int readTimeoutMs) throws Exception {
         // If endpoint is empty, use serverUrl as-is, otherwise append endpoint
         URL url = endpoint.isEmpty() ? new URL(serverUrl) : new URL(serverUrl + endpoint);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -297,7 +305,7 @@ public class McpClient {
         conn.setRequestProperty("Accept", "application/json, text/event-stream");
         conn.setDoOutput(true);
         conn.setConnectTimeout(10000);
-        conn.setReadTimeout(30000);
+        conn.setReadTimeout(readTimeoutMs);
 
         // Send request
         String jsonRequest = objectMapper.writeValueAsString(requestData);

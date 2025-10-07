@@ -299,6 +299,143 @@ public class ToolFactory {
                 .build();
     }
 
+    public static McpServerFeatures.AsyncToolSpecification createApplyRecipeToFileTool() {
+        String schema = """
+            {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "Path to the source file"
+                },
+                "recipeName": {
+                  "type": "string",
+                  "description": "Name of the recipe to apply"
+                },
+                "saveChanges": {
+                  "type": "boolean",
+                  "description": "Whether to save changes back to the file (default: false)"
+                },
+                "options": {
+                  "type": "object",
+                  "description": "Optional recipe configuration options"
+                }
+              },
+              "required": ["filePath", "recipeName"]
+            }
+            """;
+
+        return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
+                McpSchema.Tool.builder()
+                        .name("apply_recipe_to_file")
+                        .description("Apply a recipe to a file on disk and optionally save the changes")
+                        .inputSchema(McpJsonMapper.createDefault(), schema)
+                        .build())
+                .callHandler((exchange, request) -> {
+                    try {
+                        var args = request.arguments();
+                        String filePath = getStringArg(args, "filePath");
+                        String recipeName = getStringArg(args, "recipeName");
+                        boolean saveChanges = getBooleanArg(args, "saveChanges", false);
+                        Map<String, Object> options = getMapArg(args, "options");
+
+                        Map<String, Object> result = rewriteEngine.applyRecipeToFile(
+                            filePath, recipeName, saveChanges, options);
+                        String jsonResult = objectMapper.writeValueAsString(result);
+
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent(jsonResult)))
+                                .isError(false)
+                                .build());
+
+                    } catch (Exception e) {
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent("Error: " + e.getMessage())))
+                                .isError(true)
+                                .build());
+                    }
+                })
+                .build();
+    }
+
+    public static McpServerFeatures.AsyncToolSpecification createAnalyzeFileStructureTool() {
+        String schema = """
+            {
+              "type": "object",
+              "properties": {
+                "filePath": {
+                  "type": "string",
+                  "description": "Path to the source file to analyze"
+                }
+              },
+              "required": ["filePath"]
+            }
+            """;
+
+        return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
+                McpSchema.Tool.builder()
+                        .name("analyze_file_structure")
+                        .description("Analyze the structure of a source file (classes, methods, etc.) without returning the full code")
+                        .inputSchema(McpJsonMapper.createDefault(), schema)
+                        .build())
+                .callHandler((exchange, request) -> {
+                    try {
+                        var args = request.arguments();
+                        String filePath = getStringArg(args, "filePath");
+
+                        Map<String, Object> result = rewriteEngine.analyzeFileStructure(filePath);
+                        String jsonResult = objectMapper.writeValueAsString(result);
+
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent(jsonResult)))
+                                .isError(false)
+                                .build());
+
+                    } catch (Exception e) {
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent("Error: " + e.getMessage())))
+                                .isError(true)
+                                .build());
+                    }
+                })
+                .build();
+    }
+
+    public static McpServerFeatures.AsyncToolSpecification createListInstrumentationRecipesTool() {
+        String schema = """
+            {
+              "type": "object",
+              "properties": {},
+              "description": "List available instrumentation and monitoring recipes"
+            }
+            """;
+
+        return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
+                McpSchema.Tool.builder()
+                        .name("list_instrumentation_recipes")
+                        .description("List recipes for adding instrumentation, logging, metrics, and monitoring to code")
+                        .inputSchema(McpJsonMapper.createDefault(), schema)
+                        .build())
+                .callHandler((exchange, request) -> {
+                    try {
+                        Map<String, Object> result = rewriteEngine.listInstrumentationRecipes();
+                        String jsonResult = objectMapper.writeValueAsString(result);
+
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent(jsonResult)))
+                                .isError(false)
+                                .build());
+
+                    } catch (Exception e) {
+                        return Mono.just(new McpSchema.CallToolResult.Builder()
+                                .content(List.of(new McpSchema.TextContent("Error: " + e.getMessage())))
+                                .isError(true)
+                                .build());
+                    }
+                })
+                .build();
+    }
+
     // ==================== STATELESS SYNC TOOLS (HTTP) ====================
 
     public static McpStatelessServerFeatures.SyncToolSpecification createStatelessListRecipesTool() {
@@ -319,6 +456,18 @@ public class ToolFactory {
 
     public static McpStatelessServerFeatures.SyncToolSpecification createStatelessCustomRecipeTool() {
         return createSyncToolFromAsync(createCustomRecipeTool());
+    }
+
+    public static McpStatelessServerFeatures.SyncToolSpecification createStatelessApplyRecipeToFileTool() {
+        return createSyncToolFromAsync(createApplyRecipeToFileTool());
+    }
+
+    public static McpStatelessServerFeatures.SyncToolSpecification createStatelessAnalyzeFileStructureTool() {
+        return createSyncToolFromAsync(createAnalyzeFileStructureTool());
+    }
+
+    public static McpStatelessServerFeatures.SyncToolSpecification createStatelessListInstrumentationRecipesTool() {
+        return createSyncToolFromAsync(createListInstrumentationRecipesTool());
     }
 
     // ==================== HELPER METHODS ====================
@@ -350,5 +499,22 @@ public class ToolFactory {
         Object value = args.get(key);
         if (value == null) return defaultValue;
         return value.toString();
+    }
+
+    private static boolean getBooleanArg(Map<String, Object> args, String key, boolean defaultValue) {
+        Object value = args.get(key);
+        if (value == null) return defaultValue;
+        if (value instanceof Boolean) return (Boolean) value;
+        return Boolean.parseBoolean(value.toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> getMapArg(Map<String, Object> args, String key) {
+        Object value = args.get(key);
+        if (value == null) return null;
+        if (value instanceof Map) {
+            return (Map<String, Object>) value;
+        }
+        return null;
     }
 }

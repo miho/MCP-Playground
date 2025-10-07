@@ -1,0 +1,64 @@
+// Example Gradle build file with patterns that can be modernized
+// Recipes to try:
+// - org.openrewrite.gradle.UpdateGradleWrapper
+// - org.openrewrite.gradle.plugins.UpgradePluginVersion
+
+plugins {
+    id 'java'
+    id 'application'
+    // Old Spring Boot version
+    id 'org.springframework.boot' version '2.3.0.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+// Old Java version
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+repositories {
+    // Using deprecated jcenter
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    // Using deprecated configuration names
+    compile 'org.springframework.boot:spring-boot-starter-web'
+    compile 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Old versions
+    compile 'com.google.guava:guava:25.0-jre'
+    compile 'org.apache.commons:commons-lang3:3.8'
+
+    // JUnit 4
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:2.23.0'
+
+    // Runtime dependencies using old syntax
+    runtime 'com.h2database:h2'
+    runtime 'mysql:mysql-connector-java:5.1.47'
+}
+
+// Old task definition style
+task customTask << {
+    println 'This is a custom task'
+}
+
+// Using deprecated property
+test {
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+application {
+    mainClassName = 'com.example.Application'
+}
+
+// Old wrapper configuration
+wrapper {
+    gradleVersion = '5.6.4'
+}

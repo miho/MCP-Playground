@@ -68,6 +68,9 @@ public class OpenRewriteMcpServer implements Callable<Integer> {
         var applyRecipeTool = ToolFactory.createApplyRecipeTool();
         var analyzeCodeTool = ToolFactory.createAnalyzeCodeTool();
         var createCustomRecipeTool = ToolFactory.createCustomRecipeTool();
+        var applyRecipeToFileTool = ToolFactory.createApplyRecipeToFileTool();
+        var analyzeFileStructureTool = ToolFactory.createAnalyzeFileStructureTool();
+        var listInstrumentationRecipesTool = ToolFactory.createListInstrumentationRecipesTool();
 
         McpAsyncServer server = McpServer.async(transportProvider)
                 .serverInfo("openrewrite-mcp-server", getVersion())
@@ -75,7 +78,8 @@ public class OpenRewriteMcpServer implements Callable<Integer> {
                         .tools(true)
                         .build())
                 .tools(listRecipesTool, getRecipeDescriptionTool, applyRecipeTool,
-                       analyzeCodeTool, createCustomRecipeTool)
+                       analyzeCodeTool, createCustomRecipeTool, applyRecipeToFileTool,
+                       analyzeFileStructureTool, listInstrumentationRecipesTool)
                 .build();
 
         System.err.println("OpenRewrite MCP Server started (stdio mode)");
@@ -104,6 +108,9 @@ public class OpenRewriteMcpServer implements Callable<Integer> {
         var applyRecipeTool = ToolFactory.createStatelessApplyRecipeTool();
         var analyzeCodeTool = ToolFactory.createStatelessAnalyzeCodeTool();
         var createCustomRecipeTool = ToolFactory.createStatelessCustomRecipeTool();
+        var applyRecipeToFileTool = ToolFactory.createStatelessApplyRecipeToFileTool();
+        var analyzeFileStructureTool = ToolFactory.createStatelessAnalyzeFileStructureTool();
+        var listInstrumentationRecipesTool = ToolFactory.createStatelessListInstrumentationRecipesTool();
 
         McpStatelessSyncServer mcpServer = McpServer.sync(transport)
                 .serverInfo("openrewrite-mcp-server", getVersion())
@@ -111,7 +118,8 @@ public class OpenRewriteMcpServer implements Callable<Integer> {
                         .tools(true)
                         .build())
                 .tools(listRecipesTool, getRecipeDescriptionTool, applyRecipeTool,
-                       analyzeCodeTool, createCustomRecipeTool)
+                       analyzeCodeTool, createCustomRecipeTool, applyRecipeToFileTool,
+                       analyzeFileStructureTool, listInstrumentationRecipesTool)
                 .build();
 
         Server jettyServer = new Server(port);

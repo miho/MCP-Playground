@@ -575,6 +575,90 @@ public class RewriteEngine {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
+    /**
+     * Filter recipes to only those likely relevant for the given language and code.
+     * This dramatically reduces analysis time by avoiding testing irrelevant recipes.
+     */
+    private Set<String> filterRelevantRecipes(String language, String sourceCode) {
+        Set<String> relevant = new HashSet<>();
+        String codeLower = sourceCode.toLowerCase();
+
+        for (Map.Entry<String, Recipe> entry : availableRecipes.entrySet()) {
+            String name = entry.getKey().toLowerCase();
+            String displayName = entry.getValue().getDisplayName().toLowerCase();
+
+            // Always include common refactoring recipes
+            if (name.contains("simplify") || name.contains("cleanup") ||
+                name.contains("format") || name.contains("unused")) {
+                relevant.add(entry.getKey());
+                continue;
+            }
+
+            // Language-specific filtering
+            if ("java".equalsIgnoreCase(language)) {
+                // Skip non-Java recipes
+                if (name.contains("kotlin") || name.contains("groovy") ||
+                    name.contains("scala") || name.contains("xml") || name.contains("yaml")) {
+                    continue;
+                }
+
+                // Include Java migration recipes if version keywords present
+                if (name.contains("java") && (name.contains("migrate") || name.contains("upgrade"))) {
+                    if (codeLower.contains("java 8") || codeLower.contains("java8") ||
+                        codeLower.contains("java 11") || codeLower.contains("java11") ||
+                        codeLower.contains("java 17") || codeLower.contains("java17")) {
+                        relevant.add(entry.getKey());
+                        continue;
+                    }
+                }
+
+                // Include testing recipes if test code detected
+                if ((name.contains("test") || name.contains("junit") || name.contains("mockito")) &&
+                    (codeLower.contains("@test") || codeLower.contains("import org.junit"))) {
+                    relevant.add(entry.getKey());
+                    continue;
+                }
+
+                // Include Spring recipes if Spring code detected
+                if (name.contains("spring") &&
+                    (codeLower.contains("@autowired") || codeLower.contains("@component") ||
+                     codeLower.contains("import org.springframework"))) {
+                    relevant.add(entry.getKey());
+                    continue;
+                }
+
+                // Include common Java best practices
+                if (name.contains("static") || name.contains("final") ||
+                    name.contains("equals") || name.contains("hashcode") ||
+                    name.contains("string") || name.contains("collection")) {
+                    relevant.add(entry.getKey());
+                }
+            } else if ("maven".equalsIgnoreCase(language) || "pom".equalsIgnoreCase(language)) {
+                // Only Maven-specific recipes
+                if (name.contains("maven") || name.contains("dependency") || name.contains("pom")) {
+                    relevant.add(entry.getKey());
+                }
+            } else if ("gradle".equalsIgnoreCase(language)) {
+                // Only Gradle-specific recipes
+                if (name.contains("gradle") || name.contains("dependency")) {
+                    relevant.add(entry.getKey());
+                }
+            }
+        }
+
+        // If we filtered too aggressively, add some common ones back
+        if (relevant.size() < 20) {
+            availableRecipes.entrySet().stream()
+                .filter(e -> e.getKey().toLowerCase().contains("common") ||
+                            e.getKey().toLowerCase().contains("best") ||
+                            e.getKey().toLowerCase().contains("simplify"))
+                .limit(20 - relevant.size())
+                .forEach(e -> relevant.add(e.getKey()));
+        }
+
+        return relevant;
+    }
+
     public Map<String, Object> analyzeCode(String sourceCode, String language) {
         try {
             List<SourceFile> sourceFiles = parseSourceCode(sourceCode, language);
@@ -591,8 +675,18 @@ public class RewriteEngine {
             // Create LargeSourceSet from sourceFiles
             LargeSourceSet lss = new InMemoryLargeSourceSet(sourceFiles);
 
-            // Test each recipe to see if it would make changes
+            // Filter recipes based on language and code content
+            Set<String> relevantRecipes = filterRelevantRecipes(language, sourceCode);
+            logger.info("Analyzing code with {} relevant recipes out of {} total",
+                relevantRecipes.size(), availableRecipes.size());
+
+            // Test only relevant recipes to see if they would make changes
             for (Map.Entry<String, Recipe> entry : availableRecipes.entrySet()) {
+                // Skip if not relevant
+                if (!relevantRecipes.contains(entry.getKey())) {
+                    continue;
+                }
+
                 try {
                     Recipe recipe = entry.getValue();
                     RecipeRun recipeRun = recipe.run(lss, ctx);
@@ -708,5 +802,220 @@ public class RewriteEngine {
         }
 
         return diff.toString();
+    }
+
+    /**
+     * Apply a recipe to a file on disk and optionally save the result.
+     */
+    public Map<String, Object> applyRecipeToFile(String filePath, String recipeName,
+                                                  boolean saveChanges, Map<String, Object> options) {
+        try {
+            // Read the file
+            java.nio.file.Path path = java.nio.file.Paths.get(filePath);
+            if (!java.nio.file.Files.exists(path)) {
+                return Map.of("error", "File not found: " + filePath);
+            }
+
+            String sourceCode = java.nio.file.Files.readString(path);
+            String language = detectLanguageFromFile(filePath);
+
+            // Apply the recipe
+            Map<String, Object> result = applyRecipe(sourceCode, recipeName, language, options);
+
+            // Add file information
+            result.put("filePath", filePath);
+            result.put("fileSize", sourceCode.length());
+
+            // Save changes if requested
+            if (saveChanges && result.containsKey("transformed")) {
+                String transformed = (String) result.get("transformed");
+                if (!transformed.equals(sourceCode)) {
+                    java.nio.file.Files.writeString(path, transformed);
+                    result.put("saved", true);
+                    result.put("message", "Changes saved to " + filePath);
+                }
+            }
+
+            return result;
+        } catch (Exception e) {
+            logger.error("Error applying recipe to file", e);
+            return Map.of("error", "Failed to apply recipe to file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Analyze the structure of code in a file without returning the full code.
+     * Returns information about classes, methods, fields, etc.
+     */
+    public Map<String, Object> analyzeFileStructure(String filePath) {
+        try {
+            // Read the file
+            java.nio.file.Path path = java.nio.file.Paths.get(filePath);
+            if (!java.nio.file.Files.exists(path)) {
+                return Map.of("error", "File not found: " + filePath);
+            }
+
+            String sourceCode = java.nio.file.Files.readString(path);
+            String language = detectLanguageFromFile(filePath);
+
+            // Parse the source code
+            List<SourceFile> sourceFiles = parseSourceCode(sourceCode, language);
+            if (sourceFiles.isEmpty()) {
+                return Map.of("error", "Failed to parse source code");
+            }
+
+            Map<String, Object> structure = new HashMap<>();
+            structure.put("filePath", filePath);
+            structure.put("language", language);
+            structure.put("fileSize", sourceCode.length());
+            structure.put("lineCount", sourceCode.split("\n").length);
+
+            // Extract structure based on language
+            if ("java".equalsIgnoreCase(language)) {
+                List<Map<String, Object>> classes = extractJavaStructure(sourceFiles.get(0));
+                structure.put("classes", classes);
+                structure.put("classCount", classes.size());
+
+                // Count total methods
+                int methodCount = classes.stream()
+                    .mapToInt(c -> ((List<?>) c.getOrDefault("methods", List.of())).size())
+                    .sum();
+                structure.put("totalMethods", methodCount);
+            }
+
+            return structure;
+        } catch (Exception e) {
+            logger.error("Error analyzing file structure", e);
+            return Map.of("error", "Failed to analyze file structure: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extract Java class structure including methods, fields, and annotations.
+     */
+    private List<Map<String, Object>> extractJavaStructure(SourceFile sourceFile) {
+        List<Map<String, Object>> classes = new ArrayList<>();
+
+        if (sourceFile instanceof org.openrewrite.java.tree.J.CompilationUnit) {
+            org.openrewrite.java.tree.J.CompilationUnit cu =
+                (org.openrewrite.java.tree.J.CompilationUnit) sourceFile;
+
+            for (org.openrewrite.java.tree.J.ClassDeclaration classDecl :
+                 cu.getClasses()) {
+                Map<String, Object> classInfo = new HashMap<>();
+                classInfo.put("name", classDecl.getSimpleName());
+                classInfo.put("type", classDecl.getKind().name());
+
+                // Extract modifiers
+                List<String> modifiers = new ArrayList<>();
+                if (classDecl.getModifiers() != null) {
+                    classDecl.getModifiers().forEach(mod -> {
+                        if (mod instanceof org.openrewrite.java.tree.J.Modifier) {
+                            modifiers.add(((org.openrewrite.java.tree.J.Modifier) mod)
+                                .getType().name().toLowerCase());
+                        }
+                    });
+                }
+                classInfo.put("modifiers", modifiers);
+
+                // Extract methods
+                List<Map<String, Object>> methods = new ArrayList<>();
+                classDecl.getBody().getStatements().forEach(stmt -> {
+                    if (stmt instanceof org.openrewrite.java.tree.J.MethodDeclaration) {
+                        org.openrewrite.java.tree.J.MethodDeclaration method =
+                            (org.openrewrite.java.tree.J.MethodDeclaration) stmt;
+
+                        Map<String, Object> methodInfo = new HashMap<>();
+                        methodInfo.put("name", method.getSimpleName());
+
+                        // Get return type
+                        if (method.getReturnTypeExpression() != null) {
+                            methodInfo.put("returnType", method.getReturnTypeExpression().toString());
+                        }
+
+                        // Get parameters
+                        List<String> params = new ArrayList<>();
+                        if (method.getParameters() != null) {
+                            method.getParameters().forEach(param -> {
+                                if (param instanceof org.openrewrite.java.tree.J.VariableDeclarations) {
+                                    org.openrewrite.java.tree.J.VariableDeclarations varDecl =
+                                        (org.openrewrite.java.tree.J.VariableDeclarations) param;
+                                    String paramStr = varDecl.getTypeExpression() + " " +
+                                        varDecl.getVariables().get(0).getSimpleName();
+                                    params.add(paramStr);
+                                }
+                            });
+                        }
+                        methodInfo.put("parameters", params);
+
+                        // Get method modifiers
+                        List<String> methodMods = new ArrayList<>();
+                        if (method.getModifiers() != null) {
+                            method.getModifiers().forEach(mod -> {
+                                if (mod instanceof org.openrewrite.java.tree.J.Modifier) {
+                                    methodMods.add(((org.openrewrite.java.tree.J.Modifier) mod)
+                                        .getType().name().toLowerCase());
+                                }
+                            });
+                        }
+                        methodInfo.put("modifiers", methodMods);
+
+                        methods.add(methodInfo);
+                    }
+                });
+                classInfo.put("methods", methods);
+                classInfo.put("methodCount", methods.size());
+
+                classes.add(classInfo);
+            }
+        }
+
+        return classes;
+    }
+
+    /**
+     * Detect language from file extension.
+     */
+    private String detectLanguageFromFile(String filePath) {
+        String lower = filePath.toLowerCase();
+        if (lower.endsWith(".java")) return "java";
+        if (lower.endsWith(".kt")) return "kotlin";
+        if (lower.endsWith(".groovy")) return "groovy";
+        if (lower.endsWith(".xml") || lower.endsWith(".pom")) return "maven";
+        if (lower.endsWith(".gradle")) return "gradle";
+        if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+        if (lower.endsWith(".properties")) return "properties";
+        return "text";
+    }
+
+    /**
+     * List available recipes that have instrumentation or analysis capabilities.
+     */
+    public Map<String, Object> listInstrumentationRecipes() {
+        List<Map<String, String>> instrumentationRecipes = new ArrayList<>();
+
+        // Filter recipes that are related to instrumentation, metrics, logging, etc.
+        availableRecipes.entrySet().stream()
+            .filter(entry -> {
+                String name = entry.getKey().toLowerCase();
+                String displayName = entry.getValue().getDisplayName().toLowerCase();
+                return name.contains("metric") || name.contains("instrument") ||
+                       name.contains("logging") || name.contains("trace") ||
+                       name.contains("monitor") || name.contains("telemetry") ||
+                       name.contains("micrometer") || name.contains("opentelemetry") ||
+                       displayName.contains("metric") || displayName.contains("logging");
+            })
+            .forEach(entry -> {
+                Map<String, String> recipeInfo = new HashMap<>();
+                recipeInfo.put("name", entry.getKey());
+                recipeInfo.put("displayName", entry.getValue().getDisplayName());
+                recipeInfo.put("description", entry.getValue().getDescription());
+                instrumentationRecipes.add(recipeInfo);
+            });
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("recipes", instrumentationRecipes);
+        result.put("total", instrumentationRecipes.size());
+        return result;
     }
 }
