@@ -27,20 +27,28 @@ public class ToolFactory {
         String schema = """
             {
               "type": "object",
-              "properties": {},
-              "description": "List all available OpenRewrite recipes"
+              "properties": {
+                "filter": {
+                  "type": "string",
+                  "description": "Optional filter pattern to match recipe names, display names, or descriptions (e.g. 'boolean', 'simplify', 'java17')"
+                }
+              },
+              "description": "List available OpenRewrite recipes, optionally filtered by a search pattern"
             }
             """;
 
         return new McpServerFeatures.AsyncToolSpecification.Builder().tool(
                 McpSchema.Tool.builder()
                         .name("list_recipes")
-                        .description("List all available OpenRewrite recipes with their descriptions")
+                        .description("List available OpenRewrite recipes with their descriptions, optionally filtered by a search pattern")
                         .inputSchema(McpJsonMapper.createDefault(), schema)
                         .build())
                 .callHandler((exchange, request) -> {
                     try {
-                        Map<String, Object> result = rewriteEngine.listAvailableRecipes();
+                        var args = request.arguments();
+                        String filter = getStringArg(args, "filter");
+
+                        Map<String, Object> result = rewriteEngine.listAvailableRecipes(filter);
                         String jsonResult = objectMapper.writeValueAsString(result);
 
                         return Mono.just(new McpSchema.CallToolResult.Builder()

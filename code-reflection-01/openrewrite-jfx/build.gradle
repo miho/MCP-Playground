@@ -28,12 +28,12 @@ dependencies {
     implementation 'io.modelcontextprotocol.sdk:mcp:0.13.1'
 
     // OpenRewrite
-    implementation 'org.openrewrite:rewrite-java:8.40.2'
-    implementation 'org.openrewrite:rewrite-java-21:8.40.2'
-    implementation 'org.openrewrite.recipe:rewrite-migrate-java:2.26.1'
-    implementation 'org.openrewrite.recipe:rewrite-static-analysis:1.20.0'
-    implementation 'org.openrewrite:rewrite-maven:8.40.2'
-    implementation 'org.openrewrite:rewrite-gradle:8.40.2'
+    implementation 'org.openrewrite:rewrite-java:8.62.6'
+    implementation 'org.openrewrite:rewrite-java-21:8.62.6'
+    implementation 'org.openrewrite.recipe:rewrite-migrate-java:3.18.0'
+    implementation 'org.openrewrite.recipe:rewrite-static-analysis:2.18.0'
+    implementation 'org.openrewrite:rewrite-maven:8.62.6'
+    implementation 'org.openrewrite:rewrite-gradle:8.62.6'
 
     // Logging
     implementation 'org.slf4j:slf4j-simple:2.0.9'
@@ -99,6 +99,9 @@ tasks.register('serverJar', com.github.jengelman.gradle.plugins.shadow.tasks.Sha
     from(sourceSets.main.output)
     configurations = [project.configurations.runtimeClasspath]
 
+    // Enable zip64 support for large archives
+    zip64 = true
+
     // Exclude JavaFX dependencies (server doesn't need UI)
     dependencies {
         exclude(dependency('org.openjfx:.*'))
@@ -117,9 +120,13 @@ tasks.register('serverJar', com.github.jengelman.gradle.plugins.shadow.tasks.Sha
 
 // Keep original shadowJar for UI
 tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    archiveBaseName.set('openrewrite-ui-all')
-    archiveClassifier.set('')
-    archiveVersion.set('')
+    archiveBaseName.set('openrewrite-jfx')
+    archiveClassifier.set('all')
+    archiveVersion.set(version)
+
+    // Enable zip64 support for large archives
+    zip64 = true
+
     manifest {
         attributes 'Main-Class': 'com.openrewrite.ui.OpenRewriteApp'
     }
@@ -132,6 +139,8 @@ tasks.register('runServer', JavaExec) {
     description = 'Run the MCP Server'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.openrewrite.server.OpenRewriteMcpServer'
+    // Default to HTTP transport on port 3001
+    args = ['--transport', 'http', '--port', '3001']
 }
 
 // Alias for standard run task (now runs UI by default)
@@ -150,6 +159,10 @@ tasks.register('uiJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
     archiveVersion.set('')
     from(sourceSets.main.output)
     configurations = [project.configurations.runtimeClasspath]
+
+    // Enable zip64 support for large archives
+    zip64 = true
+
     manifest {
         attributes 'Main-Class': 'com.openrewrite.ui.OpenRewriteApp'
     }

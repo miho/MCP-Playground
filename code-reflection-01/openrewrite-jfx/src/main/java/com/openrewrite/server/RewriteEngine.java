@@ -78,7 +78,25 @@ public class RewriteEngine {
     }
 
     public Map<String, Object> listAvailableRecipes() {
-        List<Map<String, String>> recipeList = availableRecipes.entrySet().stream()
+        return listAvailableRecipes(null);
+    }
+
+    public Map<String, Object> listAvailableRecipes(String filterPattern) {
+        Stream<Map.Entry<String, Recipe>> stream = availableRecipes.entrySet().stream();
+
+        // Apply filter if provided
+        if (filterPattern != null && !filterPattern.trim().isEmpty()) {
+            String pattern = filterPattern.toLowerCase();
+            stream = stream.filter(entry -> {
+                String name = entry.getKey().toLowerCase();
+                String displayName = entry.getValue().getDisplayName().toLowerCase();
+                String description = entry.getValue().getDescription() != null ?
+                    entry.getValue().getDescription().toLowerCase() : "";
+                return name.contains(pattern) || displayName.contains(pattern) || description.contains(pattern);
+            });
+        }
+
+        List<Map<String, String>> recipeList = stream
             .map(entry -> {
                 Map<String, String> recipeInfo = new HashMap<>();
                 recipeInfo.put("name", entry.getKey());
@@ -92,6 +110,9 @@ public class RewriteEngine {
         Map<String, Object> result = new HashMap<>();
         result.put("recipes", recipeList);
         result.put("total", recipeList.size());
+        if (filterPattern != null && !filterPattern.trim().isEmpty()) {
+            result.put("filter", filterPattern);
+        }
         return result;
     }
 
