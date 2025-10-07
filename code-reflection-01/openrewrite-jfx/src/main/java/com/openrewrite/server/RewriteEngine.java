@@ -748,7 +748,9 @@ public class RewriteEngine {
             switch (language.toLowerCase()) {
                 case "java":
                     // Parser.parse() returns Stream<SourceFile>
+                    // Build parser with Java 17 support for modern features
                     return JavaParser.fromJavaVersion()
+                        .logCompilationWarningsAndErrors(true)
                         .build()
                         .parse(sourceCode)
                         .collect(Collectors.toList());
@@ -810,17 +812,27 @@ public class RewriteEngine {
     public Map<String, Object> applyRecipeToFile(String filePath, String recipeName,
                                                   boolean saveChanges, Map<String, Object> options) {
         try {
-            // Read the file
+            logger.info("Processing file: {}", filePath);
+
+            // Read the file directly - no conversion needed
             java.nio.file.Path path = java.nio.file.Paths.get(filePath);
             if (!java.nio.file.Files.exists(path)) {
-                return Map.of("error", "File not found: " + filePath);
+                logger.error("File not found: {}", filePath);
+                return Map.of(
+                    "error", "File not found: " + filePath,
+                    "path", filePath
+                );
             }
 
             String sourceCode = java.nio.file.Files.readString(path);
             String language = detectLanguageFromFile(filePath);
+            logger.info("Read {} bytes of {} code from {}", sourceCode.length(), language, filePath);
 
             // Apply the recipe
-            Map<String, Object> result = applyRecipe(sourceCode, recipeName, language, options);
+            Map<String, Object> recipeResult = applyRecipe(sourceCode, recipeName, language, options);
+
+            // Create a mutable result map
+            Map<String, Object> result = new HashMap<>(recipeResult);
 
             // Add file information
             result.put("filePath", filePath);
@@ -833,15 +845,22 @@ public class RewriteEngine {
                     java.nio.file.Files.writeString(path, transformed);
                     result.put("saved", true);
                     result.put("message", "Changes saved to " + filePath);
+                    logger.info("Saved changes to {}", filePath);
                 }
             }
 
             return result;
         } catch (Exception e) {
-            logger.error("Error applying recipe to file", e);
-            return Map.of("error", "Failed to apply recipe to file: " + e.getMessage());
+            logger.error("Error applying recipe to file: " + filePath, e);
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return Map.of(
+                "error", "Failed to apply recipe to file: " + errorMsg,
+                "exception", e.getClass().getName(),
+                "filePath", filePath
+            );
         }
     }
+
 
     /**
      * Analyze the structure of code in a file without returning the full code.
@@ -849,10 +868,16 @@ public class RewriteEngine {
      */
     public Map<String, Object> analyzeFileStructure(String filePath) {
         try {
-            // Read the file
+            logger.info("Analyzing file structure: {}", filePath);
+
+            // Read the file directly - no conversion needed
             java.nio.file.Path path = java.nio.file.Paths.get(filePath);
             if (!java.nio.file.Files.exists(path)) {
-                return Map.of("error", "File not found: " + filePath);
+                logger.error("File not found: {}", filePath);
+                return Map.of(
+                    "error", "File not found: " + filePath,
+                    "path", filePath
+                );
             }
 
             String sourceCode = java.nio.file.Files.readString(path);
