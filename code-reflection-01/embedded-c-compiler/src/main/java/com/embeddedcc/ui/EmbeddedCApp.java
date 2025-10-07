@@ -17,6 +17,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -72,8 +73,15 @@ public class EmbeddedCApp extends Application {
         sampleFiles.put("Blocked Transpose", "csamples/transpose_blocking.c");
 
         BorderPane root = new BorderPane();
-        root.setCenter(buildLeftPane());
-        root.setRight(buildRightPane());
+        BorderPane leftPane = buildLeftPane();
+        VBox rightPane = buildRightPane();
+
+        SplitPane mainSplit = new SplitPane();
+        mainSplit.getItems().addAll(leftPane, rightPane);
+        mainSplit.setDividerPositions(0.6);
+        SplitPane.setResizableWithParent(leftPane, true);
+        SplitPane.setResizableWithParent(rightPane, true);
+        root.setCenter(mainSplit);
 
         Scene scene = new Scene(root, 1400, 900);
         scene.getStylesheets().add(getClass().getResource("/ui/styles.css").toExternalForm());
@@ -96,19 +104,36 @@ public class EmbeddedCApp extends Application {
     private VBox buildRightPane() {
         VBox container = new VBox(12);
         container.setPadding(new Insets(12));
-        container.setPrefWidth(480);
+        container.setPrefWidth(520);
 
-        container.getChildren().add(buildSampleBar());
-        container.getChildren().add(buildCacheSection());
-        container.getChildren().add(buildAnalysisControls());
-        container.getChildren().add(buildInstrumentationTable());
-        container.getChildren().add(buildActionButtons());
-        container.getChildren().add(buildStatusBar());
-        container.getChildren().add(buildOutputTabs());
-        container.getChildren().add(buildSweepSection());
+        HBox sampleBar = buildSampleBar();
+        VBox analysisControls = buildAnalysisControls();
+        HBox actionButtons = buildActionButtons();
+        HBox statusBar = buildStatusBar();
 
-        VBox.setVgrow(candidateTable, Priority.ALWAYS);
-        VBox.setVgrow(sweepTable, Priority.SOMETIMES);
+        VBox cacheSection = buildCacheSection();
+        VBox instrumentationSection = buildInstrumentationTable();
+        TabPane outputTabs = buildOutputTabs();
+        VBox sweepSection = buildSweepSection();
+
+        VBox controls = new VBox(12, sampleBar, analysisControls, actionButtons, statusBar);
+        controls.setFillWidth(true);
+
+        SplitPane resizableContent = new SplitPane();
+        resizableContent.setOrientation(Orientation.VERTICAL);
+        cacheSection.setMinHeight(140);
+        instrumentationSection.setMinHeight(180);
+        outputTabs.setMinHeight(200);
+        sweepSection.setMinHeight(160);
+        resizableContent.getItems().addAll(cacheSection, instrumentationSection, outputTabs, sweepSection);
+        resizableContent.setDividerPositions(0.25, 0.55, 0.8);
+        SplitPane.setResizableWithParent(cacheSection, true);
+        SplitPane.setResizableWithParent(instrumentationSection, true);
+        SplitPane.setResizableWithParent(outputTabs, true);
+        SplitPane.setResizableWithParent(sweepSection, true);
+
+        container.getChildren().addAll(controls, resizableContent);
+        VBox.setVgrow(resizableContent, Priority.ALWAYS);
 
         return container;
     }
@@ -219,7 +244,6 @@ public class EmbeddedCApp extends Application {
         instrumentedTab.setClosable(false);
 
         TabPane tabs = new TabPane(outputTab, instrumentedTab);
-        tabs.setPrefHeight(220);
 
         return tabs;
     }
@@ -232,6 +256,7 @@ public class EmbeddedCApp extends Application {
         }
 
         cacheList.setPrefHeight(160);
+        cacheList.setMaxHeight(Double.MAX_VALUE);
         cacheList.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> {
             if (val != null) {
                 CacheEvent event = val.getEvent();
@@ -300,6 +325,7 @@ public class EmbeddedCApp extends Application {
 
         if (sweepTable.getColumns().isEmpty()) {
             sweepTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+            sweepTable.setMaxHeight(Double.MAX_VALUE);
 
             TableColumn<BlockSweepRow, Number> blockCol = new TableColumn<>("Block Size");
             blockCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getBlockSize()));
