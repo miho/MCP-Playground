@@ -2,8 +2,75 @@
     -fx-font-family: "Consolas", "Menlo", "Monospaced";
 }
 
+.server-control-bar {
+    -fx-background-radius: 0;
+    -fx-border-color: transparent transparent -fx-border-base transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-base: #cccccc;
+}
+
+.server-status-text {
+    -fx-font-weight: bold;
+}
+
+.server-mode-label {
+    -fx-text-fill: -fx-text-base-color;
+    -fx-opacity: 0.8;
+}
+
+.primary-button {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.secondary-button {
+    -fx-background-color: transparent;
+    -fx-border-color: -fx-text-base-color;
+    -fx-border-radius: 4;
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+    -fx-opacity: 0.85;
+}
+
 .code-area {
     -fx-font-size: 13px;
+}
+
+.code-area-dark {
+    -fx-background-color: transparent;
+}
+
+.code-area-light {
+    -fx-background-color: transparent;
+}
+
+.code-area .keyword {
+    -fx-fill: #569cd6;
+}
+
+.code-area .type {
+    -fx-fill: #c586c0;
+}
+
+.code-area .preprocessor {
+    -fx-fill: #dcdcaa;
+}
+
+.code-area .number {
+    -fx-fill: #b5cea8;
+}
+
+.code-area .string,
+.code-area .char {
+    -fx-fill: #ce9178;
+}
+
+.code-area .comment {
+    -fx-fill: #6a9955;
+    -fx-font-style: italic;
 }
 
 .miss-line {

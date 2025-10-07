@@ -7,7 +7,9 @@ Interactive JavaFX workbench that instruments C programs, compiles them via the 
 - **C Compiler Integration** – Generates instrumented sources, compiles them with `gcc`, and executes the resulting binary directly from Java.
 - **Memory Access Instrumentation** – Detects array accesses, lets you choose which to trace, and injects `TRACE_LOAD`/`TRACE_STORE` calls automatically.
 - **Cache Simulation** – Converts runtime traces into cache hit/miss/eviction summaries using an embedded LRU simulator.
-- **JavaFX UI** – Left pane displays editable source code, right pane provides instrumentation controls, execution logs, cache insights, and a block-size sweep tool.
+- **JavaFX UI** – Left pane displays syntax-highlighted source code, right pane provides instrumentation controls, execution logs, cache insights, and a block-size sweep tool.
+- **Built-in MCP Server Controls** – Launch/stop the MCP server directly from the UI, configure HTTP/stdio modes, and monitor status.
+- **Theme Toggle** – Switch instantly between dark and light themes to match your environment.
 - **MCP Server** – Tools `analyze_c_code` and `compile_and_run_c` expose the same workflow to an LLM via the Model Context Protocol (HTTP or stdio).
 
 ## Getting Started
@@ -24,7 +26,7 @@ GRADLE_USER_HOME=./.gradle ./gradlew run
 2. Click **Analyze** to refresh instrumentation candidates after editing code.
 3. Tune the cache geometry (set bits, lines/set, block bits).
 4. Select memory accesses to trace and press **Instrument & Run**.
-5. Review compilation output, instrumented source, and cache summary.
+5. Review compilation output, instrumented source (with syntax highlighting), and cache summary.
 6. Cache misses and evictions are highlighted directly in the code view.
 
 ### Block Size Sweep Example
@@ -34,6 +36,15 @@ GRADLE_USER_HOME=./.gradle ./gradlew run
 3. Configure the cache to match your target hardware (e.g., `s=5`, `E=1`, `b=5`).
 4. Choose a sweep range, e.g. start `4`, end `64`, step `4`, and click **Sweep Block Sizes**.
 5. The results table ranks each block size by cache misses; the best configuration is highlighted in green.
+
+Both the UI and MCP endpoints report the `hotspots` array (sorted by misses + evictions) so you can focus on the hottest memory accesses without streaming the full trace. Include `max_hotspots` or `max_events` when calling the MCP tool to tune the response size, and set `return_trace_path`/`save_trace_to` to retain the raw trace on disk if deeper offline analysis is required.
+
+### MCP Server Controls in the UI
+
+- Use the control bar at the top of the window to launch or stop the embedded MCP server.
+- Click **Settings** to switch between stdio and HTTP transport or adjust the HTTP port.
+- The status indicator mirrors the server log stream; green means the process is live.
+- The ☾/☼ button toggles between dark and light themes.
 
 ### Launch the MCP Server
 
@@ -52,7 +63,8 @@ GRADLE_USER_HOME=./.gradle ./gradlew runServer
 Available tools:
 
 - `analyze_c_code` – Returns functions and array access candidates.
-- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics. Optional `defines` array adds compiler definitions (e.g., `"BLOCK_SIZE=16"`).
+- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics and hotspot rankings. Options: `defines`, `max_hotspots`, `max_events`, `return_trace_path`, `save_trace_to`.
+- `sweep_block_sizes` – Runs multiple compilations with varying block sizes (via `BLOCK_SIZE` or a custom macro) and returns cache statistics plus hotspot summaries for each run.
 
 ### Configure the C Compiler
 
@@ -102,3 +114,4 @@ If you cannot fetch the Gradle distribution due to sandbox restrictions, run the
 - The simulator defaults to 32-byte blocks, one line per set, and 32 sets (5/1/5 configuration). Adjust the JSON payload sent to `compile_and_run_c` to experiment with other cache shapes.
 - When compiling on Windows, ensure a POSIX-compatible toolchain (e.g., MSYS2 or WSL) is available so `gcc` can be invoked successfully.
 - `transpose_blocking.c` honours the `BLOCK_SIZE` macro, enabling automated sweeps.
+- The JavaFX editor applies basic C syntax highlighting; customize colours by editing the theme CSS under `src/main/resources/ui/`.

@@ -43,13 +43,14 @@ public final class EmbeddedCMcpServer {
 
         var analyzeTool = ToolFactory.createAnalyzeTool();
         var compileTool = ToolFactory.createCompileTool();
+        var sweepTool = ToolFactory.createBlockSweepTool();
 
         var server = McpServer.async(transportProvider)
                 .serverInfo("embedded-c-compiler", "0.1.0")
                 .capabilities(McpSchema.ServerCapabilities.builder()
                         .tools(true)
                         .build())
-                .tools(analyzeTool, compileTool)
+                .tools(analyzeTool, compileTool, sweepTool)
                 .build();
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -72,12 +73,15 @@ public final class EmbeddedCMcpServer {
         McpStatelessServerFeatures.SyncToolSpecification compileTool =
                 ToolFactory.toSync(ToolFactory.createCompileTool());
 
+        McpStatelessServerFeatures.SyncToolSpecification sweepTool =
+                ToolFactory.toSync(ToolFactory.createBlockSweepTool());
+
         var server = McpServer.sync(transport)
                 .serverInfo("embedded-c-compiler", "0.1.0")
                 .capabilities(McpSchema.ServerCapabilities.builder()
                         .tools(true)
                         .build())
-                .tools(analyzeTool, compileTool)
+                .tools(analyzeTool, compileTool, sweepTool)
                 .build();
 
         var jetty = new org.eclipse.jetty.server.Server(port);
@@ -102,4 +106,3 @@ public final class EmbeddedCMcpServer {
         }
     }
 }
-

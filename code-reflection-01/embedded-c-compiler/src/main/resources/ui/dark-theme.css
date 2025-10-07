@@ -1,0 +1,51 @@
+.root {
+    -fx-base: #1e1e1e;
+    -fx-background-color: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+}
+
+.label, .text {
+    -fx-text-fill: #d4d4d4;
+}
+
+.primary-button {
+    -fx-background-color: #007acc;
+    -fx-border-color: transparent;
+}
+
+.secondary-button {
+    -fx-text-fill: #d4d4d4;
+    -fx-border-color: #3c3c3c;
+}
+
+.table-view, .list-view, .combo-box, .spinner {
+    -fx-background-color: #252526;
+    -fx-control-inner-background: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+}
+
+.code-area {
+    -fx-background-color: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+}
+
+.virtualized-scroll-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.server-control-bar {
+    -fx-background-color: #252526;
+    -fx-border-base: #3c3c3c;
+}
+
+.status-label {
+    -fx-text-fill: #dcdcaa;
+}
+
+.table-row-cell.best-row {
+    -fx-background-color: rgba(102, 255, 102, 0.25);
+}
+
+.miss-line {
+    -fx-background-color: rgba(255, 128, 128, 0.35);
+}

@@ -9,17 +9,24 @@ import com.embeddedcc.instrumentation.ArrayAccess;
 import com.embeddedcc.instrumentation.InstrumentationPoint;
 import com.embeddedcc.instrumentation.InstrumentedProgram;
 import com.embeddedcc.instrumentation.ProgramAnalysis;
+import com.embeddedcc.ui.components.ServerControlBar;
+import com.embeddedcc.ui.dialogs.ServerSettingsDialog;
+import com.embeddedcc.ui.server.McpServerManager;
+import com.embeddedcc.ui.server.ServerConfig;
+import com.embeddedcc.ui.server.ServerMode;
 import com.embeddedcc.util.ResourceHelper;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.Orientation;
 import javafx.scene.Scene;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.BorderPane;
@@ -33,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,6 +60,11 @@ public class EmbeddedCApp extends Application {
     private final ComboBox<String> sampleSelector = new ComboBox<>();
     private final Map<String, String> sampleFiles = new HashMap<>();
     private Button runButton;
+    private ServerControlBar controlBar;
+    private McpServerManager serverManager;
+    private ServerConfig serverConfig = ServerConfig.defaultConfig();
+    private Theme currentTheme = Theme.DARK;
+    private Scene mainScene;
     private Spinner<Integer> cacheSetBitsSpinner;
     private Spinner<Integer> cacheLinesPerSetSpinner;
     private Spinner<Integer> cacheBlockBitsSpinner;
@@ -72,22 +85,30 @@ public class EmbeddedCApp extends Application {
         sampleFiles.put("Matrix Multiply", "csamples/matrix_multiply.c");
         sampleFiles.put("Blocked Transpose", "csamples/transpose_blocking.c");
 
-        BorderPane root = new BorderPane();
+        serverManager = new McpServerManager();
+
         BorderPane leftPane = buildLeftPane();
         VBox rightPane = buildRightPane();
 
         SplitPane mainSplit = new SplitPane();
         mainSplit.getItems().addAll(leftPane, rightPane);
-        mainSplit.setDividerPositions(0.6);
+        mainSplit.setDividerPositions(0.63);
         SplitPane.setResizableWithParent(leftPane, true);
         SplitPane.setResizableWithParent(rightPane, true);
+
+        controlBar = buildControlBar();
+
+        BorderPane root = new BorderPane();
+        root.setTop(controlBar);
         root.setCenter(mainSplit);
 
         Scene scene = new Scene(root, 1400, 900);
-        scene.getStylesheets().add(getClass().getResource("/ui/styles.css").toExternalForm());
+        this.mainScene = scene;
+        applyTheme(currentTheme);
 
         primaryStage.setTitle("Embedded C Instrumentation Playground");
         primaryStage.setScene(scene);
+        primaryStage.setOnCloseRequest(event -> serverManager.stop());
         primaryStage.show();
 
         loadSample("Matrix Multiply");
@@ -99,6 +120,25 @@ public class EmbeddedCApp extends Application {
         codeView.setEditable(true);
         pane.setCenter(codeView);
         return pane;
+    }
+
+    private ServerControlBar buildControlBar() {
+        ServerControlBar bar = new ServerControlBar();
+        bar.setMode(serverConfig.mode());
+        bar.setDarkTheme(currentTheme == Theme.DARK);
+        bar.setServerRunning(serverManager.isRunning(), serverManager.statusMessageProperty().get());
+
+        bar.setOnLaunch(this::handleLaunchServer);
+        bar.setOnStop(this::handleStopServer);
+        bar.setOnSettings(this::showServerSettingsDialog);
+        bar.setOnThemeToggle(this::toggleTheme);
+
+        serverManager.runningProperty().addListener((obs, oldVal, newVal) ->
+                Platform.runLater(() -> bar.setServerRunning(newVal, serverManager.statusMessageProperty().get())));
+        serverManager.statusMessageProperty().addListener((obs, oldVal, newVal) ->
+                Platform.runLater(() -> bar.setServerRunning(serverManager.isRunning(), newVal)));
+
+        return bar;
     }
 
     private VBox buildRightPane() {
@@ -632,7 +672,61 @@ public class EmbeddedCApp extends Application {
                 .ifPresent(best -> best.setBest(true));
     }
 
+    private void handleLaunchServer() {
+        try {
+            serverManager.start(serverConfig);
+            statusLabel.setText("Launching MCP server...");
+        } catch (IllegalStateException e) {
+            showError("Server already running");
+        } catch (IOException e) {
+            showError("Failed to launch MCP server: " + e.getMessage());
+        }
+    }
+
+    private void handleStopServer() {
+        serverManager.stop();
+        statusLabel.setText("Stopping MCP server...");
+    }
+
+    private void showServerSettingsDialog() {
+        ServerSettingsDialog dialog = new ServerSettingsDialog(serverConfig);
+        dialog.initOwner(mainScene.getWindow());
+        Optional<ServerConfig> result = dialog.showAndWait();
+        result.ifPresent(config -> {
+            serverConfig = config;
+            controlBar.setMode(config.mode());
+            if (serverManager.isRunning()) {
+                statusLabel.setText("Server configuration updated. Restart to apply changes.");
+            }
+        });
+    }
+
+    private void toggleTheme() {
+        currentTheme = currentTheme == Theme.DARK ? Theme.LIGHT : Theme.DARK;
+        applyTheme(currentTheme);
+        if (controlBar != null) {
+            controlBar.setDarkTheme(currentTheme == Theme.DARK);
+        }
+    }
+
+    private void applyTheme(Theme theme) {
+        if (mainScene == null) {
+            return;
+        }
+        List<String> stylesheets = mainScene.getStylesheets();
+        stylesheets.clear();
+        stylesheets.add(getClass().getResource("/ui/styles.css").toExternalForm());
+        String themeSheet = theme == Theme.DARK ? "/ui/dark-theme.css" : "/ui/light-theme.css";
+        stylesheets.add(getClass().getResource(themeSheet).toExternalForm());
+        codeView.setDarkTheme(theme == Theme.DARK);
+    }
+
     public static void main(String[] args) {
         launch(args);
+    }
+
+    private enum Theme {
+        DARK,
+        LIGHT
     }
 }
