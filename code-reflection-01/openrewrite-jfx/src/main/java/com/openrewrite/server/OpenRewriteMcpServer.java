@@ -123,6 +123,9 @@ public class OpenRewriteMcpServer implements Callable<Integer> {
         context.addServlet(servletHolder, "/mcp");
 
         jettyServer.start();
+        System.out.println("OpenRewrite MCP Server started on HTTP port " + port);
+        System.out.println("Version: " + getVersion());
+        System.out.println("MCP endpoint: http://localhost:" + port + "/mcp");
         System.err.println("OpenRewrite MCP Server started on HTTP port " + port);
         System.err.println("Version: " + getVersion());
         System.err.println("MCP endpoint: http://localhost:" + port + "/mcp");

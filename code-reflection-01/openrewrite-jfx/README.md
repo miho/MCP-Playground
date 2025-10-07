@@ -12,6 +12,7 @@ A JavaFX application that transforms source code using OpenRewrite recipes via M
 - **Real-time Transformation**: Apply recipes and see transformed code instantly
 - **Diff Viewer**: Visual comparison between original and transformed code
 - **MCP Integration**: Communicates with OpenRewrite via Model Context Protocol
+- **External Synchronization**: UI automatically updates when external MCP clients (Claude Code, LM Studio, etc.) trigger transformations
 - **Theme Support**: Dark and light themes
 
 ## Architecture
@@ -107,6 +108,37 @@ The MCP server exposes these tools:
 - `applyRecipe`: Apply a recipe to source code
 - `analyzeCode`: Analyze code and suggest applicable recipes
 - `createCustomRecipe`: Create custom recipes from YAML
+
+## External Synchronization
+
+**NEW:** The UI now automatically updates when external MCP clients trigger transformations!
+
+When Claude Code, LM Studio, or other MCP clients call the `apply_recipe` tool, the JavaFX UI automatically synchronizes to show:
+- The source code being transformed
+- The transformation result
+- The diff view with highlighted changes
+- Real-time status updates
+
+### Testing External Sync
+
+Run the test script to see it in action:
+```bash
+./test-external-sync.sh
+```
+
+Watch the UI update automatically as transformations are triggered!
+
+### How It Works
+
+The application uses an event-driven architecture:
+1. External client calls `apply_recipe` via MCP
+2. `ToolFactory` publishes transformation events to `TransformationEventBus`
+3. `MainController` subscribes to events and updates the UI
+4. All UI updates use `Platform.runLater()` for thread safety
+
+**For complete documentation**, see:
+- `EXTERNAL-SYNC-GUIDE.md` - Usage guide and API reference
+- `IMPLEMENTATION-SUMMARY.md` - Technical implementation details
 
 ## Configuration
 
