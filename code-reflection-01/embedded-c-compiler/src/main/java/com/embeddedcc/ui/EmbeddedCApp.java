@@ -11,6 +11,7 @@ import com.embeddedcc.instrumentation.ArrayAccess;
 import com.embeddedcc.instrumentation.InstrumentationPoint;
 import com.embeddedcc.instrumentation.InstrumentedProgram;
 import com.embeddedcc.instrumentation.ProgramAnalysis;
+import com.embeddedcc.ui.components.ResultsLoader;
 import com.embeddedcc.ui.components.ServerControlBar;
 import com.embeddedcc.ui.dialogs.ServerSettingsDialog;
 import com.embeddedcc.ui.server.McpServerManager;
@@ -32,6 +33,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -105,9 +107,13 @@ public class EmbeddedCApp extends Application {
         SplitPane.setResizableWithParent(rightPane, true);
 
         controlBar = buildControlBar();
+        MenuBar menuBar = buildMenuBar();
+
+        VBox topContainer = new VBox();
+        topContainer.getChildren().addAll(menuBar, controlBar);
 
         BorderPane root = new BorderPane();
-        root.setTop(controlBar);
+        root.setTop(topContainer);
         root.setCenter(mainSplit);
 
         Scene scene = new Scene(root, 1400, 900);
@@ -131,6 +137,52 @@ public class EmbeddedCApp extends Application {
         codeView.setEditable(true);
         pane.setCenter(codeView);
         return pane;
+    }
+
+    private MenuBar buildMenuBar() {
+        MenuBar menuBar = new MenuBar();
+
+        // File menu
+        Menu fileMenu = new Menu("File");
+
+        MenuItem loadResultItem = new MenuItem("Load Result...");
+        loadResultItem.setOnAction(e -> loadResultsManually());
+
+        MenuItem loadRecentItem = new MenuItem("Load Recent Results");
+        loadRecentItem.setOnAction(e -> showRecentResults());
+
+        MenuItem exportItem = new MenuItem("Export Current Result...");
+        exportItem.setOnAction(e -> exportCurrentResult());
+
+        fileMenu.getItems().addAll(
+            loadResultItem,
+            loadRecentItem,
+            new SeparatorMenuItem(),
+            exportItem
+        );
+
+        // View menu
+        Menu viewMenu = new Menu("View");
+
+        CheckMenuItem darkModeItem = new CheckMenuItem("Dark Mode");
+        darkModeItem.setSelected(currentTheme == Theme.DARK);
+        darkModeItem.setOnAction(e -> toggleTheme());
+
+        MenuItem refreshItem = new MenuItem("Refresh Analysis");
+        refreshItem.setOnAction(e -> refreshAnalysis());
+
+        viewMenu.getItems().addAll(darkModeItem, refreshItem);
+
+        // Help menu
+        Menu helpMenu = new Menu("Help");
+
+        MenuItem aboutItem = new MenuItem("About");
+        aboutItem.setOnAction(e -> showAbout());
+
+        helpMenu.getItems().add(aboutItem);
+
+        menuBar.getMenus().addAll(fileMenu, viewMenu, helpMenu);
+        return menuBar;
     }
 
     private ServerControlBar buildControlBar() {
@@ -269,7 +321,10 @@ public class EmbeddedCApp extends Application {
         runButton.setDefaultButton(true);
         runButton.setOnAction(e -> runPipeline());
 
-        HBox box = new HBox(8, selectAll, clear, runButton);
+        Button loadResultsButton = new Button("Load Results");
+        loadResultsButton.setOnAction(e -> loadResultsManually());
+
+        HBox box = new HBox(8, selectAll, clear, runButton, loadResultsButton);
         box.setAlignment(Pos.CENTER_LEFT);
         return box;
     }
@@ -839,33 +894,96 @@ public class EmbeddedCApp extends Application {
     }
 
     private void applyPersistedResult(RunResultPersister.PersistedResult persisted) {
-        CacheSummary summary = persisted.summary();
-        CacheConfiguration config = persisted.cacheConfiguration();
-        updateCacheView(summary, config, persisted.hotspots().stream().limit(10).collect(Collectors.toList()));
-        lastSummary = summary;
+        try {
+            // Load cache summary and configuration
+            CacheSummary summary = persisted.summary();
+            CacheConfiguration config = persisted.cacheConfiguration();
 
-        String originalCode = persisted.originalCode();
-        if (originalCode != null && !originalCode.isEmpty()) {
-            codeView.setCode(originalCode);
-            refreshAnalysis();
+            // Load and display original code FIRST (before updateCacheView)
+            String originalCode = persisted.originalCode();
+            if (originalCode != null && !originalCode.isEmpty()) {
+                codeView.setCode(originalCode);
+                // Update the current source name for consistency
+                currentSourceName = "loaded_result.c";
+
+                // Refresh analysis to update instrumentation candidates
+                refreshAnalysis();
+            } else {
+                codeView.setCode("// No original code available in this result file\n");
+            }
+
+            // Update cache view with results AFTER setting code
+            // This ensures highlights are applied to the loaded code
+            if (summary != null && config != null) {
+                List<Map<String, Object>> hotspots = persisted.hotspots() != null
+                    ? persisted.hotspots().stream().limit(10).collect(Collectors.toList())
+                    : List.of();
+                updateCacheView(summary, config, hotspots);
+                lastSummary = summary;
+            }
+
+            // Load and display instrumented code
+            String instrumentedCode = persisted.instrumentedCode();
+            if (instrumentedCode != null && !instrumentedCode.isEmpty()) {
+                instrumentedArea.setText(instrumentedCode);
+            } else {
+                instrumentedArea.setText("// No instrumented code available\n// Run instrumentation to generate");
+            }
+
+            // Update run information display
+            String runId = persisted.record() != null ? persisted.record().runId() : "unknown";
+            String path = persisted.record() != null && persisted.record().path() != null
+                ? persisted.record().path().toAbsolutePath().toString()
+                : "N/A";
+
+            Map<String, Object> metadata = persisted.metadata();
+            String tool = metadata != null ? String.valueOf(metadata.getOrDefault("tool", "Manual")) : "Manual";
+            String defines = persisted.defines() != null && !persisted.defines().isEmpty()
+                ? String.join(", ", persisted.defines())
+                : "none";
+
+            // Update info labels
+            runInfoLabel.setText(String.format(
+                "Run ID: %s%nFile: %s%nSource: %s%nDefines: %s%nCode loaded: %s",
+                runId,
+                path.substring(Math.max(0, path.lastIndexOf('/') + 1)),
+                tool,
+                defines,
+                originalCode != null && !originalCode.isEmpty() ? "Yes" : "No"
+            ));
+
+            // Update status with success message
+            statusLabel.setText(String.format(
+                "✓ Loaded %s (%d events, %d hotspots)",
+                runId,
+                summary != null ? summary.getEvents().size() : 0,
+                persisted.hotspots() != null ? persisted.hotspots().size() : 0
+            ));
+
+            // Switch to output tab to show results
+            outputArea.setText(String.format(
+                "=== Loaded Result ===\n" +
+                "Run ID: %s\n" +
+                "Tool: %s\n" +
+                "Cache Configuration: s=%d, E=%d, b=%d\n" +
+                "Performance: %d hits, %d misses, %d evictions\n" +
+                "Hit Rate: %.1f%%\n",
+                runId, tool,
+                config != null ? config.setBits() : 0,
+                config != null ? config.linesPerSet() : 0,
+                config != null ? config.blockBits() : 0,
+                summary != null ? summary.getHits() : 0,
+                summary != null ? summary.getMisses() : 0,
+                summary != null ? summary.getEvictions() : 0,
+                summary != null && (summary.getHits() + summary.getMisses()) > 0
+                    ? (100.0 * summary.getHits()) / (summary.getHits() + summary.getMisses())
+                    : 0.0
+            ));
+
+        } catch (Exception e) {
+            showError("Error applying results: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        String instrumentedCode = persisted.instrumentedCode();
-        if (instrumentedCode != null && !instrumentedCode.isEmpty()) {
-            instrumentedArea.setText(instrumentedCode);
-        } else {
-            instrumentedArea.setText("No instrumented code available");
-        }
-
-        String runId = persisted.record().runId();
-        String path = persisted.record().path().toAbsolutePath().toString();
-        Map<String, Object> metadata = persisted.metadata();
-        String tool = metadata != null ? String.valueOf(metadata.getOrDefault("tool", "MCP")) : "MCP";
-        String defines = persisted.defines().isEmpty() ? "-" : String.join(", ", persisted.defines());
-
-        runInfoLabel.setText(String.format("Run ID: %s%nResult file: %s%nSource: %s%nDefines: %s",
-                runId, path, tool, defines));
-        statusLabel.setText("Loaded results from " + tool + " (" + runId + ")");
     }
 
     private void handleLaunchServer() {
@@ -882,6 +1000,76 @@ public class EmbeddedCApp extends Application {
     private void handleStopServer() {
         serverManager.stop();
         statusLabel.setText("Stopping MCP server...");
+    }
+
+    private void loadResultsManually() {
+        try {
+            Optional<ResultsLoader.LoadedResult> result = ResultsLoader.showLoadDialog(mainScene.getWindow());
+            if (result.isPresent()) {
+                ResultsLoader.LoadedResult loaded = result.get();
+                RunResultPersister.PersistedResult persisted = loaded.toPersistedResult();
+                applyPersistedResult(persisted);
+                statusLabel.setText("Loaded results from file: " + loaded.runId());
+            }
+        } catch (Exception e) {
+            showError("Failed to load results: " + e.getMessage());
+        }
+    }
+
+    private void showRecentResults() {
+        List<ResultsLoader.ResultFile> recent = ResultsLoader.findRecentResults(10);
+        if (recent.isEmpty()) {
+            showInfo("No recent results found in ~/.embedded-c-cache/results/");
+            return;
+        }
+
+        // Create list of choices with formatted strings
+        List<String> choices = recent.stream()
+            .map(f -> f.runId() + " - " + f.timestamp().toString())
+            .collect(Collectors.toList());
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
+        dialog.setTitle("Load Recent Result");
+        dialog.setHeaderText("Select a recent result to load:");
+        dialog.setContentText("Result:");
+
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent()) {
+            // Find the corresponding file
+            int index = choices.indexOf(result.get());
+            if (index >= 0 && index < recent.size()) {
+                ResultsLoader.ResultFile selectedFile = recent.get(index);
+                try {
+                    ResultsLoader.LoadedResult loaded = ResultsLoader.loadFromFile(selectedFile.path());
+                    applyPersistedResult(loaded.toPersistedResult());
+                    statusLabel.setText("Loaded recent result: " + loaded.runId());
+                } catch (IOException e) {
+                    showError("Failed to load result: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void exportCurrentResult() {
+        if (lastSummary == null || lastSummary.equals(CacheSummary.empty())) {
+            showInfo("No result to export. Run analysis first.");
+            return;
+        }
+        // TODO: Implement export functionality
+        showInfo("Export functionality coming soon");
+    }
+
+    private void showAbout() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("About");
+        alert.setHeaderText("Embedded C Cache Analysis Tool");
+        alert.setContentText("Version 1.0\n\nAnalyze cache performance of embedded C programs\nwith instrumentation and visualization.");
+        alert.showAndWait();
+    }
+
+    private void showInfo(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
+        alert.showAndWait();
     }
 
     private void showServerSettingsDialog() {
