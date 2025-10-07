@@ -48,6 +48,12 @@ public class CCompilerRunner {
 
     public RunResult compileAndRun(String fileName,
                                    InstrumentedProgram program) throws IOException, InterruptedException {
+        return compileAndRun(fileName, program, List.of());
+    }
+
+    public RunResult compileAndRun(String fileName,
+                                   InstrumentedProgram program,
+                                   List<String> extraCompileFlags) throws IOException, InterruptedException {
         Path tempDir = Files.createTempDirectory("embedded-c");
         String normalizedName = fileName == null || fileName.isBlank() ? "program.c" : fileName;
         Path sourcePath = tempDir.resolve(normalizedName);
@@ -61,6 +67,9 @@ public class CCompilerRunner {
         List<String> compileCommand = new ArrayList<>();
         compileCommand.addAll(compilerCommand);
         compileCommand.addAll(compileFlags);
+        if (extraCompileFlags != null) {
+            compileCommand.addAll(extraCompileFlags);
+        }
         compileCommand.add(sourcePath.getFileName().toString());
         compileCommand.add("instrumentation.c");
         compileCommand.addAll(linkFlags);

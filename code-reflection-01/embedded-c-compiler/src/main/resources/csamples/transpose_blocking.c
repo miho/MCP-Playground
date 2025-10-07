@@ -13,6 +13,10 @@
 #define N 64
 #define M 64
 
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 4
+#endif
+
 //
 // Checks whether B is the transpose of A
 int is_transpose(int A[N][M], int B[M][N]);
@@ -40,11 +44,19 @@ void transpose(int A[N][M], int B[M][N]) {
 	int temp = 0;
 
     if (N == 64) {
-		for (column = 0; column < N; column += 4) {
-			for (row = 0; row < N; row += 4) {
+		for (column = 0; column < N; column += BLOCK_SIZE) {
+			for (row = 0; row < N; row += BLOCK_SIZE) {
+			    int rowLimit = row + BLOCK_SIZE;
+			    if (rowLimit > N) {
+			        rowLimit = N;
+			    }
+			    int colLimit = column + BLOCK_SIZE;
+			    if (colLimit > M) {
+			        colLimit = M;
+			    }
 			    // iterate over the rows
-				for (i = row; i < row + 4; i++) {
-					for (j = column; j < column + 4; j++) {
+				for (i = row; i < rowLimit; i++) {
+					for (j = column; j < colLimit; j++) {
 					    // if not a diagonal element
 						if (i != j) {
 							B[j][i] = A[i][j];

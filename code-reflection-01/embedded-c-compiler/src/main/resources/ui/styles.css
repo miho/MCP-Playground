@@ -10,7 +10,10 @@
     -fx-background-color: rgba(255, 102, 102, 0.35);
 }
 
+.table-row-cell.best-row {
+    -fx-background-color: rgba(102, 255, 102, 0.35);
+}
+
 .status-label {
     -fx-font-weight: bold;
 }
-

@@ -7,7 +7,7 @@ Interactive JavaFX workbench that instruments C programs, compiles them via the 
 - **C Compiler Integration** – Generates instrumented sources, compiles them with `gcc`, and executes the resulting binary directly from Java.
 - **Memory Access Instrumentation** – Detects array accesses, lets you choose which to trace, and injects `TRACE_LOAD`/`TRACE_STORE` calls automatically.
 - **Cache Simulation** – Converts runtime traces into cache hit/miss/eviction summaries using an embedded LRU simulator.
-- **JavaFX UI** – Left pane displays editable source code, right pane provides instrumentation controls, execution logs, and cache insights.
+- **JavaFX UI** – Left pane displays editable source code, right pane provides instrumentation controls, execution logs, cache insights, and a block-size sweep tool.
 - **MCP Server** – Tools `analyze_c_code` and `compile_and_run_c` expose the same workflow to an LLM via the Model Context Protocol (HTTP or stdio).
 
 ## Getting Started
@@ -22,9 +22,18 @@ GRADLE_USER_HOME=./.gradle ./gradlew run
 
 1. Pick a sample (matrix multiply or blocked transpose) from the dropdown.
 2. Click **Analyze** to refresh instrumentation candidates after editing code.
-3. Select memory accesses to trace and press **Instrument & Run**.
-4. Review compilation output, instrumented source, and cache summary.
-5. Cache misses and evictions are highlighted directly in the code view.
+3. Tune the cache geometry (set bits, lines/set, block bits).
+4. Select memory accesses to trace and press **Instrument & Run**.
+5. Review compilation output, instrumented source, and cache summary.
+6. Cache misses and evictions are highlighted directly in the code view.
+
+### Block Size Sweep Example
+
+1. Load the **Blocked Transpose** sample (now parameterised via `BLOCK_SIZE`).
+2. Select the `A[i][j]` and `B[j][i]` accesses for instrumentation.
+3. Configure the cache to match your target hardware (e.g., `s=5`, `E=1`, `b=5`).
+4. Choose a sweep range, e.g. start `4`, end `64`, step `4`, and click **Sweep Block Sizes**.
+5. The results table ranks each block size by cache misses; the best configuration is highlighted in green.
 
 ### Launch the MCP Server
 
@@ -43,15 +52,19 @@ GRADLE_USER_HOME=./.gradle ./gradlew runServer
 Available tools:
 
 - `analyze_c_code` – Returns functions and array access candidates.
-- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics.
+- `compile_and_run_c` – Instruments selected IDs, compiles, executes, and replies with program output plus cache statistics. Optional `defines` array adds compiler definitions (e.g., `"BLOCK_SIZE=16"`).
 
 ### Configure the C Compiler
 
 The tool assumes `gcc` is available on the system `PATH`. If you need to point to a different compiler (e.g., `clang` or a custom MinGW installation), set an override before launching:
 
 ```bash
-# Bash / PowerShell
+# Bash
 export EMBEDDED_CC_COMPILER="/path/to/clang"
+GRADLE_USER_HOME=./.gradle ./gradlew run
+
+# PowerShell (current session)
+$env:EMBEDDED_CC_COMPILER = "C:\\msys64\\mingw64\\bin\\gcc.exe"
 GRADLE_USER_HOME=./.gradle ./gradlew run
 ```
 
@@ -88,3 +101,4 @@ If you cannot fetch the Gradle distribution due to sandbox restrictions, run the
 - The instrumentation runtime writes cache traces to `TRACE_OUTPUT_PATH` (defaults to `trace.log` inside the temporary build folder).
 - The simulator defaults to 32-byte blocks, one line per set, and 32 sets (5/1/5 configuration). Adjust the JSON payload sent to `compile_and_run_c` to experiment with other cache shapes.
 - When compiling on Windows, ensure a POSIX-compatible toolchain (e.g., MSYS2 or WSL) is available so `gcc` can be invoked successfully.
+- `transpose_blocking.c` honours the `BLOCK_SIZE` macro, enabling automated sweeps.

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 final class ToolFactory {
 
@@ -113,6 +114,11 @@ final class ToolFactory {
                         "lines_per_set": {"type": "integer"},
                         "block_bits": {"type": "integer"}
                       }
+                    },
+                    "defines": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                      "description": "Additional compiler definitions, e.g. BLOCK_SIZE=8"
                     }
                   },
                   "required": ["code"]
@@ -137,8 +143,9 @@ final class ToolFactory {
                     String fileName = getString(args, "filename");
                     List<Integer> instrumentIds = getIntegerList(args.get("instrument_ids"));
                     CacheConfiguration cacheConfig = parseCacheConfig(args.get("cache"));
+                    List<String> defines = getStringList(args.get("defines"));
 
-                    CompileWorkflow workflow = new CompileWorkflow(code, instrumentIds, fileName, cacheConfig);
+                    CompileWorkflow workflow = new CompileWorkflow(code, instrumentIds, fileName, cacheConfig, defines);
 
                     try {
                         Map<String, Object> response = workflow.execute();
@@ -206,6 +213,19 @@ final class ToolFactory {
         return CacheConfiguration.defaultConfig();
     }
 
+    private static List<String> getStringList(Object value) {
+        if (value instanceof List<?> list) {
+            List<String> result = new ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof String str && !str.isBlank()) {
+                    result.add(str.trim());
+                }
+            }
+            return result;
+        }
+        return List.of();
+    }
+
     private static int asInt(Map<?, ?> map, String key, int defaultValue) {
         Object raw = map.get(key);
         if (raw instanceof Number number) {
@@ -234,15 +254,18 @@ final class ToolFactory {
         private final List<Integer> instrumentIds;
         private final String fileName;
         private final CacheConfiguration cacheConfiguration;
+        private final List<String> compileDefines;
 
         private CompileWorkflow(String code,
                                 List<Integer> instrumentIds,
                                 String fileName,
-                                CacheConfiguration cacheConfiguration) {
+                                CacheConfiguration cacheConfiguration,
+                                List<String> compileDefines) {
             this.code = code;
             this.instrumentIds = instrumentIds;
             this.fileName = fileName;
             this.cacheConfiguration = cacheConfiguration;
+            this.compileDefines = compileDefines == null ? List.of() : List.copyOf(compileDefines);
         }
 
         Map<String, Object> execute() throws IOException, InterruptedException {
@@ -263,11 +286,17 @@ final class ToolFactory {
             InstrumentedProgram program = instrumenter.instrument(code, points);
 
             CCompilerRunner runner = new CCompilerRunner();
-            RunResult runResult = runner.compileAndRun(fileName, program);
+            List<String> compileFlags = compileDefines.stream()
+                    .map(define -> define.startsWith("-D") ? define : "-D" + define)
+                    .collect(Collectors.toList());
+            RunResult runResult = runner.compileAndRun(fileName, program, compileFlags);
 
             Map<String, Object> response = new HashMap<>();
             response.put("instrumented_code", program.getSourceCode());
             response.put("instrumented_points", points.size());
+            if (!compileDefines.isEmpty()) {
+                response.put("defines", compileDefines);
+            }
 
             Map<String, Object> compileInfo = new HashMap<>();
             compileInfo.put("exit_code", runResult.getCompileExitCode());

@@ -12,6 +12,7 @@ import com.embeddedcc.instrumentation.ProgramAnalysis;
 import com.embeddedcc.util.ResourceHelper;
 import javafx.application.Application;
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -19,12 +20,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.scene.control.cell.CheckBoxTableCell;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -49,6 +51,16 @@ public class EmbeddedCApp extends Application {
     private final ComboBox<String> sampleSelector = new ComboBox<>();
     private final Map<String, String> sampleFiles = new HashMap<>();
     private Button runButton;
+    private Spinner<Integer> cacheSetBitsSpinner;
+    private Spinner<Integer> cacheLinesPerSetSpinner;
+    private Spinner<Integer> cacheBlockBitsSpinner;
+    private Spinner<Integer> sweepStartSpinner;
+    private Spinner<Integer> sweepEndSpinner;
+    private Spinner<Integer> sweepStepSpinner;
+    private final TextField sweepMacroField = new TextField("BLOCK_SIZE");
+    private Button sweepButton;
+    private final ObservableList<BlockSweepRow> sweepRows = FXCollections.observableArrayList();
+    private final TableView<BlockSweepRow> sweepTable = new TableView<>(sweepRows);
 
     private ProgramAnalysis currentAnalysis = new ProgramAnalysis(List.of(), List.of());
     private String currentSourceName = "program.c";
@@ -87,15 +99,16 @@ public class EmbeddedCApp extends Application {
         container.setPrefWidth(480);
 
         container.getChildren().add(buildSampleBar());
+        container.getChildren().add(buildCacheSection());
         container.getChildren().add(buildAnalysisControls());
         container.getChildren().add(buildInstrumentationTable());
         container.getChildren().add(buildActionButtons());
         container.getChildren().add(buildStatusBar());
         container.getChildren().add(buildOutputTabs());
-        container.getChildren().add(buildCachePanel());
+        container.getChildren().add(buildSweepSection());
 
         VBox.setVgrow(candidateTable, Priority.ALWAYS);
-        VBox.setVgrow(cacheList, Priority.SOMETIMES);
+        VBox.setVgrow(sweepTable, Priority.SOMETIMES);
 
         return container;
     }
@@ -211,8 +224,14 @@ public class EmbeddedCApp extends Application {
         return tabs;
     }
 
-    private VBox buildCachePanel() {
-        cacheList.setPrefHeight(180);
+    private VBox buildCacheSection() {
+        if (cacheSetBitsSpinner == null) {
+            cacheSetBitsSpinner = createSpinner(1, 12, 5, 1);
+            cacheLinesPerSetSpinner = createSpinner(1, 16, 1, 1);
+            cacheBlockBitsSpinner = createSpinner(1, 10, 5, 1);
+        }
+
+        cacheList.setPrefHeight(160);
         cacheList.getSelectionModel().selectedItemProperty().addListener((obs, old, val) -> {
             if (val != null) {
                 CacheEvent event = val.getEvent();
@@ -221,9 +240,102 @@ public class EmbeddedCApp extends Application {
             }
         });
 
+        HBox configRow = new HBox(8,
+                createLabeledControl("Set bits (s)", cacheSetBitsSpinner),
+                createLabeledControl("Lines/set (E)", cacheLinesPerSetSpinner),
+                createLabeledControl("Block bits (b)", cacheBlockBitsSpinner)
+        );
+        configRow.setAlignment(Pos.CENTER_LEFT);
+
         VBox box = new VBox(6);
-        box.getChildren().addAll(new Label("Cache Analysis"), cacheSummaryLabel, cacheList);
+        box.getChildren().addAll(
+                new Label("Cache Configuration"),
+                configRow,
+                new Separator(),
+                new Label("Cache Analysis"),
+                cacheSummaryLabel,
+                cacheList
+        );
         VBox.setVgrow(cacheList, Priority.ALWAYS);
+        return box;
+    }
+
+    private Spinner<Integer> createSpinner(int min, int max, int initial, int step) {
+        Spinner<Integer> spinner = new Spinner<>(min, max, initial, step);
+        spinner.setEditable(true);
+        spinner.setPrefWidth(100);
+        return spinner;
+    }
+
+    private VBox createLabeledControl(String labelText, Control control) {
+        VBox box = new VBox(2);
+        Label label = new Label(labelText);
+        box.getChildren().addAll(label, control);
+        return box;
+    }
+
+    private VBox buildSweepSection() {
+        if (sweepStartSpinner == null) {
+            sweepStartSpinner = createSpinner(2, 256, 4, 2);
+            sweepEndSpinner = createSpinner(2, 256, 64, 2);
+            sweepStepSpinner = createSpinner(1, 128, 4, 1);
+        }
+
+        sweepMacroField.setPrefWidth(120);
+        sweepMacroField.setPromptText("Macro name");
+
+        if (sweepButton == null) {
+            sweepButton = new Button("Sweep Block Sizes");
+            sweepButton.setOnAction(e -> runBlockSweep());
+        }
+
+        HBox controls = new HBox(8,
+                createLabeledControl("Macro", sweepMacroField),
+                createLabeledControl("Start", sweepStartSpinner),
+                createLabeledControl("End", sweepEndSpinner),
+                createLabeledControl("Step", sweepStepSpinner),
+                sweepButton
+        );
+        controls.setAlignment(Pos.CENTER_LEFT);
+
+        if (sweepTable.getColumns().isEmpty()) {
+            sweepTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+            TableColumn<BlockSweepRow, Number> blockCol = new TableColumn<>("Block Size");
+            blockCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getBlockSize()));
+            blockCol.setPrefWidth(100);
+
+            TableColumn<BlockSweepRow, Number> missCol = new TableColumn<>("Misses");
+            missCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getMisses()));
+
+            TableColumn<BlockSweepRow, Number> hitCol = new TableColumn<>("Hits");
+            hitCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getHits()));
+
+            TableColumn<BlockSweepRow, Number> evictionCol = new TableColumn<>("Evictions");
+            evictionCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getEvictions()));
+
+            TableColumn<BlockSweepRow, String> statusCol = new TableColumn<>("Status");
+            statusCol.setCellValueFactory(data -> new ReadOnlyObjectWrapper<>(data.getValue().getStatus()));
+
+            sweepTable.getColumns().addAll(blockCol, missCol, hitCol, evictionCol, statusCol);
+            sweepTable.setPlaceholder(new Label("Run sweep to compare block sizes"));
+            sweepTable.setRowFactory(tv -> new TableRow<>() {
+                @Override
+                protected void updateItem(BlockSweepRow item, boolean empty) {
+                    super.updateItem(item, empty);
+                    getStyleClass().remove("best-row");
+                    if (!empty && item != null && item.isBest()) {
+                        if (!getStyleClass().contains("best-row")) {
+                            getStyleClass().add("best-row");
+                        }
+                    }
+                }
+            });
+        }
+
+        VBox box = new VBox(6);
+        box.getChildren().addAll(new Label("Block Size Sweep"), controls, sweepTable);
+        VBox.setVgrow(sweepTable, Priority.ALWAYS);
         return box;
     }
 
@@ -254,6 +366,8 @@ public class EmbeddedCApp extends Application {
         }
         statusLabel.setText("Analysis updated");
         codeView.highlightLines(Set.of());
+        sweepRows.clear();
+        sweepTable.refresh();
     }
 
     private void runPipeline() {
@@ -261,6 +375,7 @@ public class EmbeddedCApp extends Application {
         String codeSnapshot = codeView.getCode();
         runButton.setDisable(true);
         statusLabel.setText("Running instrumentation...");
+        CacheConfiguration cacheConfig = currentCacheConfiguration();
 
         Task<RunOutcome> task = new Task<>() {
             @Override
@@ -268,7 +383,7 @@ public class EmbeddedCApp extends Application {
                 InstrumentedProgram program = programService.instrument(codeSnapshot, points);
                 RunResult result = programService.compileAndRun(currentSourceName, program);
                 CacheSummary summary = result.isCompiled()
-                        ? programService.summarizeCache(result, CacheConfiguration.defaultConfig())
+                        ? programService.summarizeCache(result, cacheConfig)
                         : CacheSummary.empty();
                 return new RunOutcome(program, result, summary);
             }
@@ -279,9 +394,11 @@ public class EmbeddedCApp extends Application {
             displayResults(outcome.result(), outcome.program());
             if (outcome.result().isCompiled()) {
                 lastSummary = outcome.summary();
-                updateCacheView(outcome.summary());
+                updateCacheView(outcome.summary(), cacheConfig);
             } else {
-                cacheSummaryLabel.setText("Cache summary: compile failed");
+                cacheSummaryLabel.setText(String.format(
+                        "Cache summary (s=%d, E=%d, b=%d): compile failed",
+                        cacheConfig.setBits(), cacheConfig.linesPerSet(), cacheConfig.blockBits()));
                 cacheList.getItems().clear();
                 codeView.highlightLines(Set.of());
             }
@@ -295,6 +412,83 @@ public class EmbeddedCApp extends Application {
         });
 
         Thread thread = new Thread(task, "compile-run-task");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void runBlockSweep() {
+        List<Integer> blockSizes = collectBlockSizes();
+        if (blockSizes.isEmpty()) {
+            showError("Invalid block size sweep configuration");
+            return;
+        }
+
+        List<InstrumentationPoint> points = buildInstrumentationPoints();
+        if (points.isEmpty()) {
+            showError("Select at least one instrumentation candidate before sweeping block sizes.");
+            return;
+        }
+
+        String macroValue = sweepMacroField.getText().trim();
+        if (macroValue.isBlank()) {
+            macroValue = "BLOCK_SIZE";
+            sweepMacroField.setText(macroValue);
+        }
+
+        final String macro = macroValue;
+
+        String codeSnapshot = codeView.getCode();
+        CacheConfiguration cacheConfig = currentCacheConfiguration();
+
+        sweepButton.setDisable(true);
+        statusLabel.setText("Running block sweep...");
+
+        Task<List<BlockSweepRow>> task = new Task<>() {
+            @Override
+            protected List<BlockSweepRow> call() throws Exception {
+                InstrumentedProgram program = programService.instrument(codeSnapshot, points);
+                List<BlockSweepRow> rows = new ArrayList<>();
+                for (int size : blockSizes) {
+                    List<String> flags = List.of("-D" + macro + "=" + size);
+                    RunResult result = programService.compileAndRun(currentSourceName, program, flags);
+                    CacheSummary summary = result.isCompiled()
+                            ? programService.summarizeCache(result, cacheConfig)
+                            : CacheSummary.empty();
+                    rows.add(BlockSweepRow.from(size, result, summary));
+                }
+                return rows;
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            List<BlockSweepRow> rows = task.getValue();
+            markBestBlockSize(rows);
+            sweepRows.setAll(rows);
+            sweepTable.refresh();
+            sweepButton.setDisable(false);
+            if (rows.stream().anyMatch(BlockSweepRow::isSuccessful)) {
+                BlockSweepRow best = rows.stream()
+                        .filter(BlockSweepRow::isSuccessful)
+                        .min(Comparator.comparingInt(BlockSweepRow::getMisses))
+                        .orElse(null);
+                if (best != null) {
+                    statusLabel.setText("Sweep complete. Best block size: " + best.getBlockSize()
+                            + " (" + best.getMisses() + " misses)");
+                } else {
+                    statusLabel.setText("Sweep complete");
+                }
+            } else {
+                statusLabel.setText("Sweep complete (no successful runs)");
+            }
+        });
+
+        task.setOnFailed(event -> {
+            sweepButton.setDisable(false);
+            Throwable error = task.getException();
+            showError(error != null ? error.getMessage() : "Block sweep failed");
+        });
+
+        Thread thread = new Thread(task, "block-sweep-task");
         thread.setDaemon(true);
         thread.start();
     }
@@ -336,8 +530,10 @@ public class EmbeddedCApp extends Application {
         outputArea.setText(builder.toString());
     }
 
-    private void updateCacheView(CacheSummary summary) {
-        cacheSummaryLabel.setText(String.format("Cache summary: %d hits, %d misses, %d evictions",
+    private void updateCacheView(CacheSummary summary, CacheConfiguration config) {
+        cacheSummaryLabel.setText(String.format(
+                "Cache summary (s=%d, E=%d, b=%d): %d hits, %d misses, %d evictions",
+                config.setBits(), config.linesPerSet(), config.blockBits(),
                 summary.getHits(), summary.getMisses(), summary.getEvictions()));
 
         List<CacheEventRow> rows = summary.getEvents().stream()
@@ -365,6 +561,49 @@ public class EmbeddedCApp extends Application {
     private record RunOutcome(InstrumentedProgram program,
                               RunResult result,
                               CacheSummary summary) {
+    }
+
+    private CacheConfiguration currentCacheConfiguration() {
+        if (cacheSetBitsSpinner == null || cacheLinesPerSetSpinner == null || cacheBlockBitsSpinner == null) {
+            return CacheConfiguration.defaultConfig();
+        }
+        return new CacheConfiguration(
+                cacheSetBitsSpinner.getValue(),
+                cacheLinesPerSetSpinner.getValue(),
+                cacheBlockBitsSpinner.getValue()
+        );
+    }
+
+    private List<Integer> collectBlockSizes() {
+        if (sweepStartSpinner == null || sweepEndSpinner == null || sweepStepSpinner == null) {
+            return List.of();
+        }
+        int start = sweepStartSpinner.getValue();
+        int end = sweepEndSpinner.getValue();
+        int step = sweepStepSpinner.getValue();
+        if (step <= 0) {
+            return List.of();
+        }
+
+        List<Integer> values = new ArrayList<>();
+        if (start <= end) {
+            for (int v = start; v <= end; v += step) {
+                values.add(v);
+            }
+        } else {
+            for (int v = start; v >= end; v -= step) {
+                values.add(v);
+            }
+        }
+        return values;
+    }
+
+    private void markBestBlockSize(List<BlockSweepRow> rows) {
+        rows.forEach(row -> row.setBest(false));
+        rows.stream()
+                .filter(BlockSweepRow::isSuccessful)
+                .min(Comparator.comparingInt(BlockSweepRow::getMisses))
+                .ifPresent(best -> best.setBest(true));
     }
 
     public static void main(String[] args) {

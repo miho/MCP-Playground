@@ -33,7 +33,13 @@ public class ProgramService {
 
     public RunResult compileAndRun(String fileName,
                                    InstrumentedProgram program) throws IOException, InterruptedException {
-        return compilerRunner.compileAndRun(fileName, program);
+        return compileAndRun(fileName, program, List.of());
+    }
+
+    public RunResult compileAndRun(String fileName,
+                                   InstrumentedProgram program,
+                                   List<String> extraCompileFlags) throws IOException, InterruptedException {
+        return compilerRunner.compileAndRun(fileName, program, extraCompileFlags);
     }
 
     public CacheSummary summarizeCache(RunResult runResult,
@@ -41,4 +47,3 @@ public class ProgramService {
         return cacheAnalyzer.analyze(runResult.getTrace(), configuration, runResult.getInstrumentedPoints());
     }
 }
-
