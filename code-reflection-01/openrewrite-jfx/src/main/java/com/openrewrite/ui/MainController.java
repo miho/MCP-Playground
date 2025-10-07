@@ -562,18 +562,27 @@ public class MainController {
         alert.setTitle("Recipe Suggestions");
         alert.setHeaderText("The following recipes can be applied to your code:");
 
-        VBox content = new VBox(5);
+        // Use TextArea to make content selectable and copyable
+        TextArea textArea = new TextArea();
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+
+        StringBuilder content = new StringBuilder();
         for (Recipe recipe : suggestions) {
-            Label label = new Label("• " + recipe.getName());
+            content.append("• ").append(recipe.getName());
             if (recipe.getDescription() != null) {
-                label.setTooltip(new Tooltip(recipe.getDescription()));
+                content.append("\n  ").append(recipe.getDescription());
             }
-            content.getChildren().add(label);
+            content.append("\n\n");
         }
 
-        ScrollPane scrollPane = new ScrollPane(content);
-        scrollPane.setPrefHeight(200);
-        alert.getDialogPane().setContent(scrollPane);
+        textArea.setText(content.toString());
+        textArea.setPrefHeight(300);
+        textArea.setPrefWidth(600);
+
+        // Allow the dialog to be resizable
+        alert.getDialogPane().setContent(textArea);
+        alert.setResizable(true);
         alert.showAndWait();
     }
 

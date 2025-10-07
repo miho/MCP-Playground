@@ -1,0 +1,16 @@
+.root {
+    -fx-font-family: "Consolas", "Menlo", "Monospaced";
+}
+
+.code-area {
+    -fx-font-size: 13px;
+}
+
+.miss-line {
+    -fx-background-color: rgba(255, 102, 102, 0.35);
+}
+
+.status-label {
+    -fx-font-weight: bold;
+}
+
